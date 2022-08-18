@@ -5,11 +5,12 @@
 #---------------------------------------------------
 subsection simulation control
   set method                  = bdf1
-  set time step               = 0.0001
-  set time end                = 10
+
+  set time step               = 0.005
+  set time end                = 1
   set output name             = tracer_through_cad_junction
   set output path             = ./output/
-  set output frequency        = 1000
+  set output frequency        = 10
 end
 
 #---------------------------------------------------
@@ -43,7 +44,7 @@ end
 #---------------------------------------------------
 subsection mesh
     set type                 = gmsh
-    set file name            = vessels.msh
+    set file name            = tracer_through_cad_junction.msh
     set initial refinement   = 0
     set simplex              = true
 end
