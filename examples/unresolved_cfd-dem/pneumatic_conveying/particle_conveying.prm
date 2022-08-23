@@ -30,8 +30,8 @@ end
 #---------------------------------------------------
 subsection physical properties
     subsection fluid 0
-        set kinematic viscosity            = 1.8e-5
-        set density                        = 1.25
+        set kinematic viscosity            = 0.001
+        set density                        = 1000
     end
 end
 
@@ -41,8 +41,8 @@ end
 subsection mesh
     set type                 				= dealii
     set grid type            				= subdivided_cylinder
-    set grid arguments       				= 5 : 0.1 : 0.25
-    set initial refinement   				= 2
+    set grid arguments       				= 5 : 0.05 : 0.125
+    set initial refinement   				= 1
 end
 
 #---------------------------------------------------
@@ -118,7 +118,7 @@ end
 subsection source term
   set enable                 = true
     subsection xyz
-            set Function expression = 0; 0; 0; 0
+            set Function expression = 1; 0; 0; 0
     end
 end
 
@@ -141,6 +141,9 @@ end
 #---------------------------------------------------
 subsection model parameters
   set contact detection method 		   		 = dynamic
+ # set load balance method                    = frequent
+ # set load balance frequency                 = 10000
+ # set dynamic contact search size coefficient	 	 = 0.9
   set contact detection frequency            = 1000
   set neighborhood threshold				 = 1.8
   set particle particle contact force method = hertz_mindlin_limit_overlap

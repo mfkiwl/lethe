@@ -6,7 +6,7 @@
 #---------------------------------------------------
 subsection simulation control
     set time step                = 1e-5
-    set time end       		     = 3
+    set time end       		     = 4
     set log frequency			 = 1000
     set output frequency         = 1000
     set output path              = ./output_dem/
@@ -69,11 +69,11 @@ end
 subsection insertion info
     set insertion method			        	= non_uniform
     set inserted number of particles at each time step  = 100
-    set insertion frequency            		 	= 25000
-    set insertion box minimum x            	 	= 0.1
+    set insertion frequency            		 	= 50000
+    set insertion box minimum x            	 	= 0.04
     set insertion box minimum y            	    = -0.035
     set insertion box minimum z            	    = -0.035
-    set insertion box maximum x            	    = 0.25
+    set insertion box maximum x            	    = 0.125
     set insertion box maximum y           	 	= 0.035
     set insertion box maximum z            	    = 0.035
     set insertion distance threshold			= 1.5
@@ -81,12 +81,11 @@ subsection insertion info
     set insertion random number seed			= 19
 end
 
-
 #---------------------------------------------------
 # Floating walls
 #---------------------------------------------------
 subsection floating walls
-    set number of floating walls	= 1
+    set number of floating walls	= 2
     subsection wall 0
 		subsection point on wall
 			set x				    = -0.1
@@ -99,8 +98,23 @@ subsection floating walls
  			set nz 				    = 0
 		end
 	    set start time				= 0
-		set end time				= 3
+		set end time				= 4
    	end
+
+   	subsection wall 1
+    		subsection point on wall
+    			set x				    = 0
+    			set y				    = 0.04
+    			set z				    = 0
+    		end
+    		subsection normal vector
+    			set nx				    = 0
+    			set ny				    = -1
+     			set nz 				    = 0
+    		end
+    	    set start time				= 0
+    		set end time				= 4
+       	end
 
 end
 
@@ -110,6 +124,7 @@ end
 subsection mesh
     set type                 				= dealii
     set grid type            				= subdivided_cylinder
-    set grid arguments       				= 5 : 0.1 : 0.25
-    set initial refinement   				= 2
+    set grid arguments       				= 5 : 0.05 : 0.125
+    set initial refinement   				= 1
 end
+
