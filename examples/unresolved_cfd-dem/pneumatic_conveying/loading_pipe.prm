@@ -5,11 +5,12 @@
 # Simulation and IO Control
 #---------------------------------------------------
 subsection simulation control
-  set time step                = 1.5e-6
-  set time end       		   = 0.5
-  set log frequency			   = 1000
-  set output frequency         = 1000
-  set output path              = ./output_dem/
+    set time step                = 1e-5
+    set time end       		     = 3
+    set log frequency			 = 1000
+    set output frequency         = 1000
+    set output path              = ./output_dem/
+    set output boundaries        = true
 end
 
 #---------------------------------------------------
@@ -40,20 +41,20 @@ end
 # Physical Properties
 #---------------------------------------------------
 subsection lagrangian physical properties
-    set gx            		 			= -9.81 # Only for loading
-    set gy            		 			= 0
-    set gz						        = 0
-    set number of particle types	    = 1
+    set gx            		 			        = -9.81 # Only for loading
+    set gy            		 			        = 0
+    set gz						                = 0
+    set number of particle types	            = 1
     subsection particle type 0
-		    set size distribution type		        = uniform
-    		set diameter            	 	        = 2e-4
-    		set number				                = 1000
-    		set density particles         	        = 1020
-    		set young modulus particles         	= 1000000
-    		set poisson ratio particles          	= 0.3
-    		set restitution coefficient particles	= 0.9
-    		set friction coefficient particles      = 0.3
-    		set rolling friction particles        	= 0.3
+        set size distribution type		        = uniform
+        set diameter            	 	        = 0.01
+        set number				                = 500
+        set density particles         	        = 1020
+        set young modulus particles         	= 1000000
+        set poisson ratio particles          	= 0.3
+        set restitution coefficient particles	= 0.9
+        set friction coefficient particles      = 0.3
+        set rolling friction particles        	= 0.3
 	end
     set young modulus wall            			= 1000000
     set poisson ratio wall            			= 0.3
@@ -67,20 +68,41 @@ end
 #---------------------------------------------------
 subsection insertion info
     set insertion method			        	= non_uniform
-    set inserted number of particles at each time step  = 1000
-    set insertion frequency            		 	= 100000
-    set insertion box minimum x            	 	= -0.125
-    set insertion box minimum y            	    = -0.01
-    set insertion box minimum z            	    = -0.01
-    set insertion box maximum x            	    = -0.1225
-    set insertion box maximum y           	 	= -0.1
-    set insertion box maximum z            	    = 0.01
+    set inserted number of particles at each time step  = 100
+    set insertion frequency            		 	= 25000
+    set insertion box minimum x            	 	= 0.1
+    set insertion box minimum y            	    = -0.035
+    set insertion box minimum z            	    = -0.035
+    set insertion box maximum x            	    = 0.25
+    set insertion box maximum y           	 	= 0.035
+    set insertion box maximum z            	    = 0.035
     set insertion distance threshold			= 1.5
     set insertion random number range			= 0.2
     set insertion random number seed			= 19
 end
 
 
+#---------------------------------------------------
+# Floating walls
+#---------------------------------------------------
+subsection floating walls
+    set number of floating walls	= 1
+    subsection wall 0
+		subsection point on wall
+			set x				    = -0.1
+			set y				    = 0
+			set z				    = 0
+		end
+		subsection normal vector
+			set nx				    = 1
+			set ny				    = 0
+ 			set nz 				    = 0
+		end
+	    set start time				= 0
+		set end time				= 3
+   	end
+
+end
 
 #---------------------------------------------------
 # Mesh
@@ -88,6 +110,6 @@ end
 subsection mesh
     set type                 				= dealii
     set grid type            				= subdivided_cylinder
-    set grid arguments       				= 10 : 0.01525 : 0.125
-    set initial refinement   				= 3
+    set grid arguments       				= 5 : 0.1 : 0.25
+    set initial refinement   				= 2
 end
