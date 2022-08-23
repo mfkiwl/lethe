@@ -1,0 +1,93 @@
+# Listing of Parameters
+# ---------------------
+
+#---------------------------------------------------
+# Simulation and IO Control
+#---------------------------------------------------
+subsection simulation control
+  set time step                = 1.5e-6
+  set time end       		   = 0.5
+  set log frequency			   = 1000
+  set output frequency         = 1000
+  set output path              = ./output_dem/
+end
+
+#---------------------------------------------------
+# Restart
+#---------------------------------------------------
+subsection restart
+	set checkpoint					 = true
+	set frequency 					 = 10000
+	set restart       				 = false
+	set filename      				 = dem
+end
+
+# --------------------------------------------------
+# Model parameters
+#---------------------------------------------------
+subsection model parameters
+  set contact detection method 		   		 = dynamic
+  set load balance method				     = dynamic
+  set load balance threshold				 = 0.5
+  set dynamic load balance check frequency	 = 10000
+  set neighborhood threshold				 = 1.5
+  set particle particle contact force method = hertz_mindlin_limit_overlap
+  set particle wall contact force method     = nonlinear
+  set integration method				     = velocity_verlet
+end
+
+#---------------------------------------------------
+# Physical Properties
+#---------------------------------------------------
+subsection lagrangian physical properties
+    set gx            		 			= -9.81 # Only for loading
+    set gy            		 			= 0
+    set gz						        = 0
+    set number of particle types	    = 1
+    subsection particle type 0
+		    set size distribution type		        = uniform
+    		set diameter            	 	        = 2e-4
+    		set number				                = 1000
+    		set density particles         	        = 1020
+    		set young modulus particles         	= 1000000
+    		set poisson ratio particles          	= 0.3
+    		set restitution coefficient particles	= 0.9
+    		set friction coefficient particles      = 0.3
+    		set rolling friction particles        	= 0.3
+	end
+    set young modulus wall            			= 1000000
+    set poisson ratio wall            			= 0.3
+    set restitution coefficient wall           	= 0.2
+    set friction coefficient wall         		= 0.1
+    set rolling friction wall         	      	= 0.3
+end
+
+#---------------------------------------------------
+# Insertion Info
+#---------------------------------------------------
+subsection insertion info
+    set insertion method			        	= non_uniform
+    set inserted number of particles at each time step  = 1000
+    set insertion frequency            		 	= 100000
+    set insertion box minimum x            	 	= -0.125
+    set insertion box minimum y            	    = -0.01
+    set insertion box minimum z            	    = -0.01
+    set insertion box maximum x            	    = -0.1225
+    set insertion box maximum y           	 	= -0.1
+    set insertion box maximum z            	    = 0.01
+    set insertion distance threshold			= 1.5
+    set insertion random number range			= 0.2
+    set insertion random number seed			= 19
+end
+
+
+
+#---------------------------------------------------
+# Mesh
+#---------------------------------------------------
+subsection mesh
+    set type                 				= dealii
+    set grid type            				= subdivided_cylinder
+    set grid arguments       				= 10 : 0.01525 : 0.125
+    set initial refinement   				= 3
+end
