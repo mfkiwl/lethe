@@ -32,14 +32,14 @@ read_mesh(const Parameters::Mesh &             mesh_params,
 
   triangulation_cell_diameter = 0.5 * GridTools::diameter(triangulation);
 
+  if (bc_params.BC_type ==
+      Parameters::Lagrangian::BCDEM::BoundaryType::periodic)
+    {
+      match_periodic_boundaries(triangulation, bc_params);
+    }
+
   if (!restart)
     {
-      if (bc_params.BC_type ==
-          Parameters::Lagrangian::BCDEM::BoundaryType::periodic)
-        {
-          match_periodic_boundaries(triangulation, bc_params);
-        }
-
       if (mesh_params.refine_until_target_size)
         {
           double minimal_cell_size =
@@ -81,7 +81,9 @@ match_periodic_boundaries(Triangulation<dim, spacedim> &       triangulation,
                                         periodicity_vector);
       triangulation.add_periodicity(periodicity_vector);
     }
+  std::cout << "DONE" << std::endl;
 }
+
 
 
 template void

@@ -263,15 +263,15 @@ private:
   typename dem_data_structures<dim>::vector_on_boundary
     torques_boundary_information;
 
-  ParticleParticleBroadSearch<dim>  particle_particle_broad_search_object;
-  ParticleParticleFineSearch<dim>   particle_particle_fine_search_object;
-  ParticleWallBroadSearch<dim>      particle_wall_broad_search_object;
-  ParticlePointLineBroadSearch<dim> particle_point_line_broad_search_object;
-  ParticleWallFineSearch<dim>       particle_wall_fine_search_object;
-  ParticlePointLineFineSearch<dim>  particle_point_line_fine_search_object;
-  ParticlePointLineForce<dim>       particle_point_line_contact_force_object;
-  std::shared_ptr<Integrator<dim>>  integrator_object;
-  std::shared_ptr<Insertion<dim>>   insertion_object;
+  ParticleParticleBroadSearch<dim>   particle_particle_broad_search_object;
+  ParticleParticleFineSearch<dim>    particle_particle_fine_search_object;
+  ParticleWallBroadSearch<dim>       particle_wall_broad_search_object;
+  ParticlePointLineBroadSearch<dim>  particle_point_line_broad_search_object;
+  ParticleWallFineSearch<dim>        particle_wall_fine_search_object;
+  ParticlePointLineFineSearch<dim>   particle_point_line_fine_search_object;
+  ParticlePointLineForce<dim>        particle_point_line_contact_force_object;
+  std::shared_ptr<Integrator<dim>>   integrator_object;
+  std::shared_ptr<Insertion<dim>>    insertion_object;
   PeriodicBoundariesManipulator<dim> periodic_boundaries_object;
   std::shared_ptr<ParticleParticleContactForce<dim>>
     particle_particle_contact_force_object;

@@ -5,11 +5,11 @@
 # Simulation and IO Control
 #---------------------------------------------------
 subsection simulation control
-    set time step                = 1e-5
-    set time end       		     = 4
+    set time step                = 1e-6
+    set time end       		     = 0.1
     set log frequency			 = 1000
     set output frequency         = 1000
-    set output path              = ./output_dem/
+    set output path              = ./output_dem_0/
     set output boundaries        = true
 end
 
@@ -47,8 +47,8 @@ subsection lagrangian physical properties
     set number of particle types	            = 1
     subsection particle type 0
         set size distribution type		        = uniform
-        set diameter            	 	        = 0.01
-        set number				                = 500
+        set diameter            	 	        = 2e-4
+        set number				                = 5
         set density particles         	        = 1020
         set young modulus particles         	= 1000000
         set poisson ratio particles          	= 0.3
@@ -68,14 +68,14 @@ end
 #---------------------------------------------------
 subsection insertion info
     set insertion method			        	= non_uniform
-    set inserted number of particles at each time step  = 100
+    set inserted number of particles at each time step  = 5
     set insertion frequency            		 	= 50000
-    set insertion box minimum x            	 	= 0.04
-    set insertion box minimum y            	    = -0.035
-    set insertion box minimum z            	    = -0.035
-    set insertion box maximum x            	    = 0.125
-    set insertion box maximum y           	 	= 0.035
-    set insertion box maximum z            	    = 0.035
+    set insertion box minimum x            	 	= -0.0125
+    set insertion box minimum y            	    = -0.005
+    set insertion box minimum z            	    = -0.005
+    set insertion box maximum x            	    = -0.012
+    set insertion box maximum y           	 	= 0.005
+    set insertion box maximum z            	    = 0.005
     set insertion distance threshold			= 1.5
     set insertion random number range			= 0.2
     set insertion random number seed			= 19
@@ -88,7 +88,7 @@ subsection floating walls
     set number of floating walls	= 2
     subsection wall 0
 		subsection point on wall
-			set x				    = -0.1
+			set x				    = -0.0125
 			set y				    = 0
 			set z				    = 0
 		end
@@ -104,7 +104,7 @@ subsection floating walls
    	subsection wall 1
     		subsection point on wall
     			set x				    = 0
-    			set y				    = 0.04
+    			set y				    = 0.01
     			set z				    = 0
     		end
     		subsection normal vector
@@ -124,7 +124,20 @@ end
 subsection mesh
     set type                 				= dealii
     set grid type            				= subdivided_cylinder
-    set grid arguments       				= 5 : 0.05 : 0.125
-    set initial refinement   				= 1
+    set grid arguments       				= 1 : 0.01525 : 0.02
+    set initial refinement   				= 3
 end
 
+#---------------------------------------------------
+# Boundary conditions DEM
+#---------------------------------------------------
+subsection DEM boundary conditions
+   set number of boundary conditions                   = 1
+
+   subsection boundary condition 0
+       set type                                        = periodic
+       set boundary id                                 = 1
+       set periodic id                                 = 2
+       set periodic direction                          = 0
+   end
+end

@@ -11,7 +11,7 @@ subsection simulation control
     set startup time scaling          = 0.6
     set time end                      = 1.
     set time step                     = 1e-4
-    set output path                   = ./output/
+    set output path                   = ./output_cylinder_0/
     set output boundaries             = true
 end
 
@@ -30,8 +30,8 @@ end
 #---------------------------------------------------
 subsection physical properties
     subsection fluid 0
-        set kinematic viscosity            = 0.001
-        set density                        = 1000
+        set kinematic viscosity            = 1.2e-5
+        set density                        = 1.25
     end
 end
 
@@ -41,7 +41,7 @@ end
 subsection mesh
     set type                 				= dealii
     set grid type            				= subdivided_cylinder
-    set grid arguments       				= 5 : 0.05 : 0.125
+    set grid arguments       				= 1 : 0.01525 : 0.02
     set initial refinement   				= 1
 end
 
@@ -64,6 +64,8 @@ end
 subsection cfd-dem
    set grad div                         = true
    set drag model                       = difelice
+   #set saffman lift force               = true
+   #set buoyancy force                   = true
    set post processing                  = true
    set inlet boundary id                = 1 # left
    set outlet boundary id               = 2 # right
@@ -108,7 +110,6 @@ subsection DEM boundary conditions
        set periodic id                                 = 2
        set periodic direction                          = 0
    end
-
 end
 
 
@@ -118,7 +119,7 @@ end
 subsection source term
   set enable                 = true
     subsection xyz
-            set Function expression = 1; 0; 0; 0
+            set Function expression = 0; 0; 0; 0
     end
 end
 
@@ -144,7 +145,7 @@ subsection model parameters
  # set load balance method                    = frequent
  # set load balance frequency                 = 10000
  # set dynamic contact search size coefficient	 	 = 0.9
-  set contact detection frequency            = 1000
+  set contact detection frequency            = 10
   set neighborhood threshold				 = 1.8
   set particle particle contact force method = hertz_mindlin_limit_overlap
   set particle wall contact force method     = nonlinear
@@ -161,8 +162,8 @@ subsection lagrangian physical properties
     set number of particle types	    = 1
     subsection particle type 0
         set size distribution type		        = uniform
-        set diameter            	 	        = 0.01
-        set number				                = 1000
+        set diameter            	 	        = 2e-4
+        set number				                = 5
         set density particles         	        = 1020
         set young modulus particles         	= 1000000
         set poisson ratio particles          	= 0.3

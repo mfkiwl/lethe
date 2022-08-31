@@ -935,8 +935,8 @@ CFDDEMSolver<dim>::dem_iterator(unsigned int counter)
     }
 
   // Particles displacement if passing through a periodic boundary
-    periodic_boundaries_object.execute_particles_displacement(
-      this->particle_handler);
+  periodic_boundaries_object.execute_particles_displacement(
+    this->particle_handler);
 }
 
 template <int dim>
