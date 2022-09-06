@@ -9,7 +9,7 @@ subsection simulation control
     set time end       		     = 0.1
     set log frequency			 = 1000
     set output frequency         = 1000
-    set output path              = ./output_dem_0/
+    set output path              = ./output_dem_5/
     set output boundaries        = true
 end
 
@@ -48,7 +48,7 @@ subsection lagrangian physical properties
     subsection particle type 0
         set size distribution type		        = uniform
         set diameter            	 	        = 2e-4
-        set number				                = 5
+        set number				                = 1000
         set density particles         	        = 1020
         set young modulus particles         	= 1000000
         set poisson ratio particles          	= 0.3
@@ -68,7 +68,7 @@ end
 #---------------------------------------------------
 subsection insertion info
     set insertion method			        	= non_uniform
-    set inserted number of particles at each time step  = 5
+    set inserted number of particles at each time step  = 1000
     set insertion frequency            		 	= 50000
     set insertion box minimum x            	 	= -0.0125
     set insertion box minimum y            	    = -0.005
