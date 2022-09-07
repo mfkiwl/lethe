@@ -6,10 +6,10 @@
 #---------------------------------------------------
 subsection simulation control
     set time step                = 1e-6
-    set time end       		     = 0.1
+    set time end       		     = 1
     set log frequency			 = 1000
     set output frequency         = 1000
-    set output path              = ./output_dem_5/
+    set output path              = ./output_dem_100/
     set output boundaries        = true
 end
 
@@ -41,14 +41,14 @@ end
 # Physical Properties
 #---------------------------------------------------
 subsection lagrangian physical properties
-    set gx            		 			        = -9.81 # Only for loading
-    set gy            		 			        = 0
+    set gx            		 			        = 0 # Only for loading
+    set gy            		 			        = -9.81
     set gz						                = 0
     set number of particle types	            = 1
     subsection particle type 0
         set size distribution type		        = uniform
         set diameter            	 	        = 2e-4
-        set number				                = 1000
+        set number				                = 10000
         set density particles         	        = 1020
         set young modulus particles         	= 1000000
         set poisson ratio particles          	= 0.3
@@ -68,13 +68,13 @@ end
 #---------------------------------------------------
 subsection insertion info
     set insertion method			        	= non_uniform
-    set inserted number of particles at each time step  = 1000
+    set inserted number of particles at each time step  = 10000
     set insertion frequency            		 	= 50000
-    set insertion box minimum x            	 	= -0.0125
-    set insertion box minimum y            	    = -0.005
+    set insertion box minimum x            	 	= -0.0075
+    set insertion box minimum y            	    = -0.014
     set insertion box minimum z            	    = -0.005
-    set insertion box maximum x            	    = -0.012
-    set insertion box maximum y           	 	= 0.005
+    set insertion box maximum x            	    = 0.0075
+    set insertion box maximum y           	 	= -0.0125
     set insertion box maximum z            	    = 0.005
     set insertion distance threshold			= 1.5
     set insertion random number range			= 0.2
@@ -85,10 +85,10 @@ end
 # Floating walls
 #---------------------------------------------------
 subsection floating walls
-    set number of floating walls	= 2
+    set number of floating walls	= 0
     subsection wall 0
 		subsection point on wall
-			set x				    = -0.0125
+			set x				    = -0.005
 			set y				    = 0
 			set z				    = 0
 		end
@@ -98,22 +98,22 @@ subsection floating walls
  			set nz 				    = 0
 		end
 	    set start time				= 0
-		set end time				= 4
+		set end time				= 0.1
    	end
 
    	subsection wall 1
     		subsection point on wall
-    			set x				    = 0
-    			set y				    = 0.01
+    			set x				    = 0.005
+    			set y				    = 0
     			set z				    = 0
     		end
     		subsection normal vector
-    			set nx				    = 0
-    			set ny				    = -1
+    			set nx				    = 1
+    			set ny				    = 0
      			set nz 				    = 0
     		end
     	    set start time				= 0
-    		set end time				= 4
+    		set end time				= 0.25
        	end
 
 end
@@ -124,8 +124,9 @@ end
 subsection mesh
     set type                 				= dealii
     set grid type            				= subdivided_cylinder
-    set grid arguments       				= 1 : 0.01525 : 0.02
+    set grid arguments       				= 3 : 0.01525 : 0.02
     set initial refinement   				= 3
+    set expand particle-wall contact search = false
 end
 
 #---------------------------------------------------
