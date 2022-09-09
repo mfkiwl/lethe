@@ -9,9 +9,9 @@ subsection simulation control
     set output name                   = cfd_dem
     set output frequency	  	      = 10
     set startup time scaling          = 0.6
-    set time end                      = 1.
+    set time end                      = 2.
     set time step                     = 1e-4
-    set output path                   = ./output_cylinder_12/
+    set output path                   = ./output_cylinder_102/
     set output boundaries             = true
 end
 
@@ -28,7 +28,7 @@ end
 subsection restart
 	set checkpoint					 = true
 	set frequency 					 = 10
-	set restart       				 = false
+	set restart       				 = true
 	set filename      				 = cfd_dem
 end
 
@@ -38,8 +38,9 @@ end
 subsection mesh
     set type                 				= dealii
     set grid type            				= subdivided_cylinder
-    set grid arguments       				= 3 : 0.01525 : 0.02
+    set grid arguments       				= 3 : 0.01525 : 0.04
     set initial refinement   				= 3
+    set expand particle-wall contact search = false
 end
 
 #---------------------------------------------------
