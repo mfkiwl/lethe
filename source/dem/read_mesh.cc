@@ -81,7 +81,6 @@ match_periodic_boundaries(Triangulation<dim, spacedim> &       triangulation,
                                         periodicity_vector);
       triangulation.add_periodicity(periodicity_vector);
     }
-  std::cout << "DONE" << std::endl;
 }
 
 

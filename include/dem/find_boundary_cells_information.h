@@ -218,7 +218,7 @@ private:
    * Carries out adding new elements with the boundary cells (cells with
    * boundary faces) and information (point and normal vector) of their neighbor
    * boundary cells to the boundary_cells_information. By adding these
-   * elementes, the broad and fine searches will search for potential contacts
+   * elements, the broad and fine searches will search for potential contacts
    * of the particles in each boundary cell with the boundary neighbors of these
    * cells. This function is used to solve the problem of late contact detection
    * in triangulations with curved boundaries.
