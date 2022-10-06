@@ -379,6 +379,7 @@ namespace Parameters
     {
       pspg_supg,
       gls,
+      artificial_compressibility,
       grad_div
     } stabilization;
 

@@ -361,7 +361,8 @@ namespace Parameters
       prm.declare_entry(
         "stabilization",
         "pspg_supg",
-        Patterns::Selection("pspg_supg|gls|grad_div"),
+        Patterns::Selection(
+          "pspg_supg|gls|artificial_compressibility|grad_div"),
         "Type of stabilization used for the Navier-Stokes equations"
         "Choices are <pspg_supg|gls|grad_div>.");
     }
@@ -379,6 +380,8 @@ namespace Parameters
         stabilization = NavierStokesStabilization::pspg_supg;
       else if (op == "gls")
         stabilization = NavierStokesStabilization::gls;
+      else if (op == "artificial_compressibility")
+        stabilization = NavierStokesStabilization::artificial_compressibility;
       else if (op == "grad_div")
         stabilization = NavierStokesStabilization::grad_div;
       else
