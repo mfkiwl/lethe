@@ -181,8 +181,8 @@ public:
 
   std::shared_ptr<SimulationControl> simulation_control;
 
-  const double M2_inv = 1;
-  const double Re_inv = 0;
+  const double M2 = 0.01;
+  const double Re_inv = 0.;
 };
 
 
@@ -452,6 +452,8 @@ public:
   virtual void
   assemble_rhs(NavierStokesScratchData<dim>         &scratch_data,
                StabilizedMethodsTensorCopyData<dim> &copy_data) override;
+
+  const double M2 = 0.01;
 
   std::shared_ptr<SimulationControl> simulation_control;
 };

@@ -641,10 +641,10 @@ ArtificialCompressibilityNavierStokesAssemblerCore<dim>::assemble_matrix(
                 grad_phi_u_j_x_velocity[j] * phi_u_i - div_phi_u_i * phi_p_j +
                 mass_source * phi_u_j * phi_u_i +
                 // Continuity
-                velocity * grad_phi_p_j * phi_p_i +
-                (phi_u_j * pressure_gradient) * phi_p_i +
-                +M2_inv * div_phi_u_j * phi_p_i +
-                Re_inv * grad_phi_p_j * grad_phi_p_i;
+                //M2*velocity * grad_phi_p_j * phi_p_i +
+                //M2*(phi_u_j * pressure_gradient) * phi_p_i +
+                +div_phi_u_j * phi_p_i ;
+                //M2*Re_inv * grad_phi_p_j * grad_phi_p_i;
 
 
               // Continuity
@@ -654,7 +654,7 @@ ArtificialCompressibilityNavierStokesAssemblerCore<dim>::assemble_matrix(
               // mass_source * phi_p_i) *
 
               // PSPG GLS term
-              // local_matrix_ij += tau * (strong_jac * grad_phi_p_i);
+               local_matrix_ij += tau * (strong_jac * grad_phi_p_i);
 
               // The jacobian matrix for the SUPG formulation
               // currently does not include the jacobian of the stabilization
@@ -762,14 +762,14 @@ ArtificialCompressibilityNavierStokesAssemblerCore<dim>::assemble_rhs(
               force * phi_u_i -
               mass_source * velocity * phi_u_i
               // Continuity
-              - velocity * pressure_gradient * phi_p_i -
-              -M2_inv * velocity_divergence * phi_p_i -
-              Re_inv * pressure_gradient * grad_phi_p_i +
+              //-M2* velocity * pressure_gradient * phi_p_i -
+              - velocity_divergence * phi_p_i -
+              //M2* Re_inv * pressure_gradient * grad_phi_p_i +
               +mass_source * phi_p_i) *
             JxW;
 
           // PSPG GLS term
-          // local_rhs_i += -tau * (strong_residual * grad_phi_p_i) * JxW;
+           local_rhs_i += -tau * (strong_residual * grad_phi_p_i) * JxW;
 
           // SUPG GLS term
           local_rhs_i +=
@@ -1541,6 +1541,7 @@ ArtificialCompressibilityNavierStokesAssemblerBDF<dim>::assemble_matrix(
   std::vector<Tensor<1, dim>> velocity(1 +
                                        number_of_previous_solutions(method));
 
+
   // Loop over the quadrature points
   for (unsigned int q = 0; q < n_q_points; ++q)
     {
@@ -1571,7 +1572,7 @@ ArtificialCompressibilityNavierStokesAssemblerBDF<dim>::assemble_matrix(
               const double          phi_p_j = scratch_data.phi_p[q][j];
 
               local_matrix(i, j) +=
-                (phi_u_j * phi_u_i + phi_p_j * phi_p_i) * bdf_coefs[0] * JxW[q];
+                (phi_u_j * phi_u_i + M2*phi_p_j * phi_p_i) * bdf_coefs[0] * JxW[q];
             }
         }
     }
@@ -1632,7 +1633,7 @@ ArtificialCompressibilityNavierStokesAssemblerBDF<dim>::assemble_rhs(
                ++p)
             {
               local_rhs_i -=
-                bdf_coefs[p] * (velocity[p] * phi_u_i + pressure[p] * phi_p_i);
+                bdf_coefs[p] * (velocity[p] * phi_u_i + M2*pressure[p] * phi_p_i);
             }
           local_rhs(i) += local_rhs_i * JxW[q];
         }
