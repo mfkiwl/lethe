@@ -358,6 +358,13 @@ namespace Parameters
         "true",
         Patterns::Bool(),
         "Use the default stabilization method provided by the solver");
+
+      prm.declare_entry(
+        "artificial compressibility coefficient",
+        "0.01",
+        Patterns::Double(),
+        "Artificial compressibility coefficient used in artificial compressibility stabilization strategy");
+
       prm.declare_entry(
         "stabilization",
         "pspg_supg",
@@ -375,7 +382,9 @@ namespace Parameters
     prm.enter_subsection("stabilization");
     {
       use_default_stabilization = prm.get_bool("use default stabilization");
-      std::string op            = prm.get("stabilization");
+      artificial_compressibility_coefficient =
+        prm.get_double("artificial compressibility coefficient");
+      std::string op = prm.get("stabilization");
       if (op == "pspg_supg")
         stabilization = NavierStokesStabilization::pspg_supg;
       else if (op == "gls")

@@ -383,6 +383,8 @@ namespace Parameters
       grad_div
     } stabilization;
 
+    double artificial_compressibility_coefficient;
+
     static void
     declare_parameters(ParameterHandler &prm);
     void
