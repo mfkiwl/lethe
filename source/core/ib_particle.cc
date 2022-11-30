@@ -159,10 +159,15 @@ IBParticle<dim>::initialize_shape(const std::string         type,
                                   const std::vector<double> shape_arguments)
 {
   if (type == "sphere")
-    shape =
-      std::make_shared<Sphere<dim>>(shape_arguments[0], position, orientation);
+    {
+      particle_type = type;
+      shape         = std::make_shared<Sphere<dim>>(shape_arguments[0],
+                                            position,
+                                            orientation);
+    }
   else if (type == "rectangle")
     {
+      particle_type=type;
       Tensor<1, dim> half_lengths;
       for (unsigned int i = 0; i < dim; ++i)
         {
@@ -173,6 +178,7 @@ IBParticle<dim>::initialize_shape(const std::string         type,
     }
   else if (type == "ellipsoid")
     {
+      particle_type=type;
       Tensor<1, dim> radii;
       for (unsigned int i = 0; i < dim; ++i)
         {
@@ -182,6 +188,7 @@ IBParticle<dim>::initialize_shape(const std::string         type,
     }
   else if (type == "torus")
     {
+      particle_type=type;
       if constexpr (dim == 3)
         shape = std::make_shared<Torus<dim>>(shape_arguments[0],
                                              shape_arguments[1],
@@ -190,6 +197,7 @@ IBParticle<dim>::initialize_shape(const std::string         type,
     }
   else if (type == "cone")
     {
+      particle_type = type;
       if constexpr (dim == 3)
         shape = std::make_shared<Cone<dim>>(shape_arguments[0],
                                             shape_arguments[1],
@@ -225,6 +233,7 @@ IBParticle<dim>::initialize_shape(const std::string         type,
     }
   else if (type == "cut hollow sphere")
     {
+      particle_type = type;
       if constexpr (dim == 3)
         shape = std::make_shared<CutHollowSphere<dim>>(shape_arguments[0],
                                                        shape_arguments[1],
@@ -234,6 +243,7 @@ IBParticle<dim>::initialize_shape(const std::string         type,
     }
   else if (type == "death star")
     {
+      particle_type = type;
       if constexpr (dim == 3)
         shape = std::make_shared<DeathStar<dim>>(shape_arguments[0],
                                                  shape_arguments[1],
@@ -243,11 +253,25 @@ IBParticle<dim>::initialize_shape(const std::string         type,
     }
   else if (type == "rbf")
     {
+      particle_type = type;
       shape =
         std::make_shared<RBFShape<dim>>(shape_arguments, position, orientation);
     }
+
   else
     StandardExceptions::ExcNotImplemented();
+}
+template <int dim>
+void
+IBParticle<dim>::initialize_shape(const std::string         type,
+                                  const std::string shape_arguments)
+{
+  if (type == "step")
+  {
+    particle_type = type;
+    shape =
+      std::make_shared<StepShape<dim>>(shape_arguments, position, orientation);
+  }
 }
 
 template <int dim>
@@ -287,12 +311,18 @@ void
 IBParticle<dim>::closest_surface_point(const Point<dim> &p,
                                        Point<dim> &      closest_point)
 {
+  if(particle_type=="step")
+    {
+      closest_point=shape->gradient(p);
+    }
+  else{
   Tensor<1, dim> actual_gradient;
   double         distance_from_surface;
   actual_gradient       = shape->gradient(p);
   distance_from_surface = shape->value(p);
   closest_point =
     p - (actual_gradient / actual_gradient.norm()) * distance_from_surface;
+    }
 }
 
 template <int dim>

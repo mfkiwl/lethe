@@ -197,6 +197,9 @@ public:
   void
   initialize_shape(const std::string         type,
                    const std::vector<double> shape_arguments);
+  void
+  initialize_shape(const std::string         type,
+                   const std::string    shape_arguments);
 
   /**
    * @brief
@@ -350,6 +353,8 @@ public:
   // Location of the pressure reference point relative to the center of the
   // particle. This point is used to define a constant on the pressure.
   Point<dim> pressure_location;
+
+  std::string particle_type;
 };
 
 #endif

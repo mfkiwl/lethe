@@ -2392,6 +2392,10 @@ namespace Parameters
                 }
               particles[i].initialize_shape(shape_type, shape_arguments);
             }
+          else if(shape_type == "step"){
+              std::string shape_name = shape_arguments_str_list[0];
+              particles[i].initialize_shape(shape_type, shape_name);
+            }
           else if (shape_type == "composite")
             {
               if (shape_arguments_str == "1") // Default case
@@ -2568,6 +2572,7 @@ namespace Parameters
               particles[i].initialize_shape(shape_type, shape_arguments);
             }
 
+
           particles[i].radius = particles[i].shape->effective_radius;
 
           if (dim == 2)
@@ -2589,90 +2594,7 @@ namespace Parameters
     }
   }
 
-  template <int dim>
-  void
-  IBParticles<dim>::initialize_shape(const unsigned int        i,
-                                     const std::string         type,
-                                     const std::vector<double> shape_arguments)
-  {
-    if (type == "sphere")
-      particles[i].shape =
-        std::make_shared<Sphere<dim>>(shape_arguments[0],
-                                      particles[i].position,
-                                      particles[i].orientation);
-    else if (type == "rectangle")
-      {
-        Tensor<1, dim> half_lengths;
-        for (unsigned int d = 0; d < dim; ++d)
-          {
-            half_lengths[d] = shape_arguments[d];
-          }
-        particles[i].shape =
-          std::make_shared<Rectangle<dim>>(half_lengths,
-                                           particles[i].position,
-                                           particles[i].orientation);
-      }
-    else if (type == "ellipsoid")
-      {
-        Tensor<1, dim> radii;
-        for (unsigned int d = 0; d < dim; ++d)
-          {
-            radii[d] = shape_arguments[d];
-          }
-        particles[i].shape =
-          std::make_shared<Ellipsoid<dim>>(radii,
-                                           particles[i].position,
-                                           particles[i].orientation);
-      }
-    else if (type == "torus")
-      {
-        if constexpr (dim == 3)
 
-          particles[i].shape =
-            std::make_shared<Torus<dim>>(shape_arguments[0],
-                                         shape_arguments[1],
-                                         particles[i].position,
-                                         particles[i].orientation);
-      }
-    else if (type == "cone")
-      {
-        if constexpr (dim == 3)
-          particles[i].shape =
-            std::make_shared<Cone<dim>>(shape_arguments[0],
-                                        shape_arguments[1],
-                                        particles[i].position,
-                                        particles[i].orientation);
-      }
-    else if (type == "cut hollow sphere")
-      {
-        if constexpr (dim == 3)
-          particles[i].shape =
-            std::make_shared<CutHollowSphere<dim>>(shape_arguments[0],
-                                                   shape_arguments[1],
-                                                   shape_arguments[2],
-                                                   particles[i].position,
-                                                   particles[i].orientation);
-      }
-    else if (type == "death star")
-      {
-        if constexpr (dim == 3)
-          particles[i].shape =
-            std::make_shared<DeathStar<dim>>(shape_arguments[0],
-                                             shape_arguments[1],
-                                             shape_arguments[2],
-                                             particles[i].position,
-                                             particles[i].orientation);
-      }
-    else if (type == "rbf")
-      {
-        particles[i].shape =
-          std::make_shared<RBFShape<dim>>(shape_arguments,
-                                          particles[i].position,
-                                          particles[i].orientation);
-      }
-    else
-      StandardExceptions::ExcNotImplemented();
-  }
 
   void
   DynamicFlowControl::declare_parameters(ParameterHandler &prm)

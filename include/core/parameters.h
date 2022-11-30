@@ -1038,10 +1038,6 @@ namespace Parameters
      * tube, cylindrical helix, rbf, or composite
      * @param shape_arguments The dimensions to be used for shape initialization
      */
-    void
-    initialize_shape(const unsigned int        i,
-                     const std::string         type,
-                     const std::vector<double> shape_arguments);
 
     unsigned int                 nb;
     unsigned int                 order;
