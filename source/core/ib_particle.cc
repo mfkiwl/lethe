@@ -167,7 +167,7 @@ IBParticle<dim>::initialize_shape(const std::string         type,
     }
   else if (type == "rectangle")
     {
-      particle_type=type;
+      particle_type = type;
       Tensor<1, dim> half_lengths;
       for (unsigned int i = 0; i < dim; ++i)
         {
@@ -178,7 +178,7 @@ IBParticle<dim>::initialize_shape(const std::string         type,
     }
   else if (type == "ellipsoid")
     {
-      particle_type=type;
+      particle_type = type;
       Tensor<1, dim> radii;
       for (unsigned int i = 0; i < dim; ++i)
         {
@@ -188,7 +188,7 @@ IBParticle<dim>::initialize_shape(const std::string         type,
     }
   else if (type == "torus")
     {
-      particle_type=type;
+      particle_type = type;
       if constexpr (dim == 3)
         shape = std::make_shared<Torus<dim>>(shape_arguments[0],
                                              shape_arguments[1],
@@ -263,31 +263,61 @@ IBParticle<dim>::initialize_shape(const std::string         type,
 }
 template <int dim>
 void
-IBParticle<dim>::initialize_shape(const std::string         type,
+IBParticle<dim>::initialize_shape(const std::string type,
                                   const std::string shape_arguments)
 {
   if (type == "step")
-  {
-    particle_type = type;
-    shape =
-      std::make_shared<StepShape<dim>>(shape_arguments, position, orientation);
-  }
+    {
+      particle_type = type;
+      shape         = std::make_shared<StepShape<dim>>(shape_arguments,
+                                               position,
+                                               orientation);
+    }
+}
+
+template <int dim>
+unsigned int
+IBParticle<dim>::get_number_properties()
+{
+  return PropertiesIndex::n_properties;
+}
+
+template <int dim>
+double
+IBParticle<dim>::get_levelset(
+  const Point<dim>                                    &p,
+  const typename DoFHandler<dim>::active_cell_iterator cell_guess)
+{
+  return shape->value_with_cell_guess(p, cell_guess);
+}
+template <int dim>
+double
+IBParticle<dim>::get_levelset(const Point<dim> &p)
+{
+  return shape->value(p);
 }
 
 template <int dim>
 void
 IBParticle<dim>::closest_surface_point(
-  const Point<dim> &                                    p,
-  Point<dim> &                                          closest_point,
-  const typename DoFHandler<dim>::active_cell_iterator &cell_guess)
+  const Point<dim>                                    &p,
+  Point<dim>                                          &closest_point,
+  const typename DoFHandler<dim>::active_cell_iterator cell_guess)
 {
-  Tensor<1, dim> actual_gradient;
-  double         distance_from_surface;
-  actual_gradient       = shape->gradient_with_cell_guess(p, cell_guess);
-  distance_from_surface = shape->value_with_cell_guess(p, cell_guess);
+  if (particle_type == "step")
+    {
+      closest_point = shape->gradient(p);
+    }
+  else
+    {
+      Tensor<1, dim> actual_gradient;
+      double         distance_from_surface;
+      actual_gradient       = shape->gradient_with_cell_guess(p, cell_guess);
+      distance_from_surface = shape->value_with_cell_guess(p, cell_guess);
 
-  closest_point =
-    p - (actual_gradient / actual_gradient.norm()) * distance_from_surface;
+      closest_point =
+        p - (actual_gradient / actual_gradient.norm()) * distance_from_surface;
+    }
 }
 
 template <int dim>
@@ -309,29 +339,30 @@ IBParticle<dim>::closest_surface_point(
 template <int dim>
 void
 IBParticle<dim>::closest_surface_point(const Point<dim> &p,
-                                       Point<dim> &      closest_point)
+                                       Point<dim>       &closest_point)
 {
-  if(particle_type=="step")
+  if (particle_type == "step")
     {
-      closest_point=shape->gradient(p);
+      closest_point = shape->gradient(p);
     }
-  else{
-  Tensor<1, dim> actual_gradient;
-  double         distance_from_surface;
-  actual_gradient       = shape->gradient(p);
-  distance_from_surface = shape->value(p);
-  closest_point =
-    p - (actual_gradient / actual_gradient.norm()) * distance_from_surface;
+  else
+    {
+      Tensor<1, dim> actual_gradient;
+      double         distance_from_surface;
+      actual_gradient       = shape->gradient(p);
+      distance_from_surface = shape->value(p);
+      closest_point =
+        p - (actual_gradient / actual_gradient.norm()) * distance_from_surface;
     }
 }
 
 template <int dim>
 bool
 IBParticle<dim>::is_inside_crown(
-  const Point<dim> &                                    evaluation_point,
-  const double                                          outer_radius,
-  const double                                          inside_radius,
-  const typename DoFHandler<dim>::active_cell_iterator &cell_guess)
+  const Point<dim>                                    &evaluation_point,
+  const double                                         outer_radius,
+  const double                                         inside_radius,
+  const typename DoFHandler<dim>::active_cell_iterator cell_guess)
 {
   const double radius = shape->effective_radius;
 
