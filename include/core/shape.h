@@ -115,7 +115,6 @@ public:
   value_with_cell_guess(
     const Point<dim>                                    &evaluation_point,
     const typename DoFHandler<dim>::active_cell_iterator cell,
-    unsigned int dof_index,
     const unsigned int                                   component = 0);
 
   /**
@@ -128,7 +127,6 @@ public:
   gradient_with_cell_guess(
     const Point<dim>                                    &evaluation_point,
     const typename DoFHandler<dim>::active_cell_iterator cell,
-    unsigned int dof_index,
     const unsigned int                                   component = 0);
 
 
@@ -159,8 +157,7 @@ public:
   closest_surface_point(
     const Point<dim>                                     &p,
     Point<dim>                                           &closest_point,
-    const typename DoFHandler<dim>::active_cell_iterator &cell_guess,
-    unsigned int dof_index
+    const typename DoFHandler<dim>::active_cell_iterator &cell_guess
     );
   virtual void
   closest_surface_point(const Point<dim> &p, Point<dim> &closest_point);
@@ -220,6 +217,15 @@ public:
     return orientation;
   }
 
+
+  /**
+   * @brief
+   * Returns the orientation of the shape
+   *
+   */
+  virtual void
+  clear_cache();
+
   /**
    * @brief
    * Most value functions assume that the particle's position is at the origin
@@ -236,8 +242,14 @@ public:
    */
   Point<dim>
   align_and_center(const Point<dim> &evaluation_point) const;
+
+  std::string
+  point_to_string(const Point<dim> &evaluation_point) const;
   // Effective radius used for crown refinement
   double effective_radius;
+
+  // String that contains additional information on the shape
+  std::string additional_info_on_shape;
 
 
 protected:
@@ -248,8 +260,8 @@ protected:
   // the axes x->y->z by each of the tensor components, in radian
   Tensor<1, 3> orientation;
 
-  std::unordered_map<unsigned int,double> value_cache;
-  std::unordered_map<unsigned int,Tensor<1,dim>> gradient_cache;
+  std::unordered_map<std::string,double> value_cache;
+  std::unordered_map<std::string,Tensor<1,dim>> gradient_cache;
 };
 
 
@@ -810,16 +822,19 @@ public:
       {
         shape = OpenCASCADE::read_STEP(file_name);
         std::cout<<"hi_step"<<std::endl;
+        this->additional_info_on_shape="step";
       }
     if (found_igs != std::string::npos || found_igs_2 != std::string::npos)
       {
         shape = OpenCASCADE::read_IGES(file_name);
         std::cout<<"hi_iges"<<std::endl;
+        this->additional_info_on_shape="iges";
       }
     if (found_stl != std::string::npos)
       {
         shape = OpenCASCADE::read_STL(file_name);
         std::cout<<"hi_stl"<<std::endl;
+        this->additional_info_on_shape="stl";
       }
 
     vertex_position = OpenCASCADE::point(Point<dim>());
@@ -844,7 +859,6 @@ public:
   value_with_cell_guess(
     const Point<dim>                                    &evaluation_point,
     const typename DoFHandler<dim>::active_cell_iterator cell,
-    unsigned int dof_index,
     const unsigned int component = 0) override;
 
   /**
@@ -865,15 +879,13 @@ public:
   gradient_with_cell_guess(
     const Point<dim>                                    &evaluation_point,
     const typename DoFHandler<dim>::active_cell_iterator cell,
-    unsigned int dof_index,
     const unsigned int component = 0) override;
 
   void
   closest_surface_point(
     const Point<dim>                                     &p,
     Point<dim>                                           &closest_point,
-    const typename DoFHandler<dim>::active_cell_iterator &cell_guess,
-    unsigned int dof_index) override;
+    const typename DoFHandler<dim>::active_cell_iterator &cell_guess) override;
   void
   closest_surface_point(const Point<dim> &p,
                         Point<dim>       &closest_point) override;
@@ -1016,7 +1028,6 @@ public:
   gradient_with_cell_guess(
     const Point<dim>                                    &evaluation_point,
     const typename DoFHandler<dim>::active_cell_iterator cell,
-    unsigned int dof_index,
     const unsigned int component = 0) override;
 
   /**
