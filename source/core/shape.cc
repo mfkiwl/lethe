@@ -1322,7 +1322,7 @@ RBFShape<dim>::update_precalculations(DoFHandler<dim> &dof_handler,
 {
   rotate_nodes();
   int maximal_level = dof_handler.get_triangulation().n_levels();
-
+  const unsigned int vertices_per_cell= GeometryInfo<dim>::vertices_per_cell;
   for (int level = highest_level_searched + 1; level < maximal_level; level++)
     {
       const auto &cell_iterator = dof_handler.cell_iterators_on_level(level);
@@ -1331,7 +1331,13 @@ RBFShape<dim>::update_precalculations(DoFHandler<dim> &dof_handler,
           if (level == maximal_level)
             if (!cell->is_locally_owned())
               break;
-          determine_likely_nodes_for_one_cell(cell, cell->vertex(0));
+          Point<dim> centroid_of_cell;
+          for (unsigned int i = 0; i < vertices_per_cell; ++i)
+            {
+              centroid_of_cell+=cell->vertex(i);
+            }
+          centroid_of_cell=centroid_of_cell/vertices_per_cell;
+          determine_likely_nodes_for_one_cell(cell,centroid_of_cell);
         }
       highest_level_searched = level;
     }
