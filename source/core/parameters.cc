@@ -1980,7 +1980,7 @@ namespace Parameters
       "type",
       "sphere",
       Patterns::Selection(
-        "sphere|rectangle|ellipsoid|torus|cone|cylinder|cylindrical tube|cylindrical helix|cut hollow sphere|death star|rbf|composite"),
+        "sphere|rectangle|ellipsoid|torus|cone|cylinder|cylindrical tube|cylindrical helix|rectangular helix|cut hollow sphere|death star|rbf|opencascade|composite"),
       "The type of shape considered."
       "Choices are <sphere|rectangle|ellipsoid|torus|cone|cylinder|cylindrical tube|cylindrical helix|cut hollow sphere|death star|rbf|composite>."
       "The parameter for a sphere is: radius. "
@@ -2392,9 +2392,9 @@ namespace Parameters
                 }
               particles[i].initialize_shape(shape_type, shape_arguments);
             }
-          else if(shape_type == "step"){
+          else if(shape_type == "opencascade"){
               std::string shape_name = shape_arguments_str_list[0];
-              particles[i].initialize_shape(shape_type, shape_name);
+              particles[i].initialize_shape(shape_type,shape_arguments_str);
             }
           else if (shape_type == "composite")
             {

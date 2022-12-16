@@ -264,15 +264,17 @@ IBParticle<dim>::initialize_shape(const std::string         type,
         std::make_shared<RBFShape<dim>>(shape_arguments, position, orientation);
     }
 
+
   else
     StandardExceptions::ExcNotImplemented();
 }
+
 template <int dim>
 void
 IBParticle<dim>::initialize_shape(const std::string type,
                                   const std::string shape_arguments)
 {
-  if (type == "step")
+  if (type == "opencascade")
     {
       particle_type = type;
       shape         = std::make_shared<OpenCascadeShape<dim>>(shape_arguments,
