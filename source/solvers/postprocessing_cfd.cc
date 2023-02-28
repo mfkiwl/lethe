@@ -1112,3 +1112,119 @@ calculate_flow_rate(const DoFHandler<3> &                     dof_handler,
                     const unsigned int &                      boundary_id,
                     const Quadrature<2> &face_quadrature_formula,
                     const Mapping<3> &   mapping);
+
+template <int dim, typename VectorType>
+std::pair<double, double>
+calculate_flow_rate(const DoFHandler<dim> &    dof_handler,
+                    const DoFHandler<dim> &    void_fraction_dof_handler,
+                    const VectorType &         present_solution,
+                    const VectorType &         present_void_fraction_solution,
+                    const unsigned int &       boundary_id,
+                    const Quadrature<dim - 1> &face_quadrature_formula,
+                    const Mapping<dim> &       mapping)
+{
+  // Set up for velocity fe values
+  const auto &                     tria       = dof_handler.get_triangulation();
+  const FESystem<dim, dim>         fe         = dof_handler.get_fe();
+  const unsigned int               n_q_points = face_quadrature_formula.size();
+  const FEValuesExtractors::Vector velocities(0);
+  std::vector<Tensor<1, dim>>      velocity_values(n_q_points);
+  Tensor<1, dim>                   normal_vector;
+
+  FEFaceValues<dim> fe_face_values(mapping,
+                                   fe,
+                                   face_quadrature_formula,
+                                   update_values | update_quadrature_points |
+                                     update_JxW_values | update_normal_vectors);
+
+  // Set up for void fraction fe values
+  const FESystem<dim, dim> fe_void_fraction =
+    void_fraction_dof_handler.get_fe();
+  const FEValuesExtractors::Scalar void_fraction(0);
+  std::vector<double>              void_fraction_values(n_q_points);
+
+  FEFaceValues<dim> fe_face_vf_values(mapping,
+                                      fe_void_fraction,
+                                      face_quadrature_formula,
+                                      update_values | update_quadrature_points |
+                                        update_JxW_values |
+                                        update_normal_vectors);
+
+  // Initialize variables for summation
+  double flow_rate = 0;
+  double area      = 0;
+
+  // Calculating area and volumetric flow rate at the inlet flow
+  for (const auto &cell : dof_handler.active_cell_iterators())
+    {
+      if (cell->is_locally_owned() && cell->at_boundary())
+        {
+          for (unsigned int face = 0; face < GeometryInfo<dim>::faces_per_cell;
+               face++)
+            {
+              if (cell->face(face)->at_boundary())
+                {
+                  fe_face_values.reinit(cell, face);
+
+                  typename DoFHandler<dim>::active_cell_iterator vf_cell(
+                    &tria,
+                    cell->level(),
+                    cell->index(),
+                    &void_fraction_dof_handler);
+
+                  fe_face_vf_values.reinit(vf_cell, face);
+                  if (cell->face(face)->boundary_id() == boundary_id)
+                    {
+                      for (unsigned int q = 0; q < n_q_points; q++)
+                        {
+                          // Get the void fraction at the quadrature point
+                          fe_face_vf_values[void_fraction].get_function_values(
+                            present_void_fraction_solution,
+                            void_fraction_values);
+
+                          // Add the area of the face on boundary
+                          // weighted by void fraction
+                          area +=
+                            fe_face_values.JxW(q) * void_fraction_values[q];
+
+                          // Add the flow rate at the face on boundary weighted
+                          // by void fraction
+                          normal_vector = fe_face_values.normal_vector(q);
+                          fe_face_values[velocities].get_function_values(
+                            present_solution, velocity_values);
+                          flow_rate += velocity_values[q] * normal_vector *
+                                       fe_face_values.JxW(q) *
+                                       void_fraction_values[q];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+  const MPI_Comm mpi_communicator = dof_handler.get_communicator();
+  area                            = Utilities::MPI::sum(area, mpi_communicator);
+  flow_rate = Utilities::MPI::sum(flow_rate, mpi_communicator);
+
+  return std::make_pair(flow_rate, area);
+}
+
+template std::pair<double, double>
+calculate_flow_rate(
+  const DoFHandler<2> &                dof_handler,
+  const DoFHandler<2> &                void_fraction_dof_handler,
+  const TrilinosWrappers::MPI::Vector &present_solution,
+  const TrilinosWrappers::MPI::Vector &present_void_fraction_solution,
+  const unsigned int &                 boundary_id,
+  const Quadrature<1> &                face_quadrature_formula,
+  const Mapping<2> &                   mapping);
+
+template std::pair<double, double>
+calculate_flow_rate(
+  const DoFHandler<3> &                dof_handler,
+  const DoFHandler<3> &                void_fraction_dof_handler,
+  const TrilinosWrappers::MPI::Vector &present_solution,
+  const TrilinosWrappers::MPI::Vector &present_void_fraction_solution,
+  const unsigned int &                 boundary_id,
+  const Quadrature<2> &                face_quadrature_formula,
+  const Mapping<3> &                   mapping);

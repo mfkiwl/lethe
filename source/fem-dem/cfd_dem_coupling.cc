@@ -411,13 +411,6 @@ CFDDEMSolver<dim>::read_checkpoint()
   if (this->simulation_parameters.flow_control.enable_flow_control)
     {
       this->flow_control.read(prefix);
-
-      this->flow_rate = calculate_flow_rate(
-        this->dof_handler,
-        this->present_solution,
-        this->simulation_parameters.flow_control.boundary_flow_id,
-        *this->face_quadrature,
-        *this->mapping);
     }
 
   this->multiphysics->read_checkpoint();
@@ -1079,6 +1072,54 @@ CFDDEMSolver<dim>::postprocess_fd(bool first_iteration)
   if (this->simulation_control->is_output_iteration())
     {
       write_DEM_output_results();
+    }
+}
+
+template <int dim>
+void
+CFDDEMSolver<dim>::dynamic_flow_control()
+{
+  if (this->simulation_parameters.flow_control.enable_flow_control &&
+      this->simulation_parameters.simulation_control.method !=
+        Parameters::SimulationControl::TimeSteppingMethod::steady)
+    {
+      // Calculate the flow rate
+      std::pair<double, double> flow_rate = calculate_flow_rate(
+        this->dof_handler,
+        this->void_fraction_dof_handler,
+        this->present_solution,
+        this->nodal_void_fraction_relevant,
+        this->simulation_parameters.flow_control.boundary_flow_id,
+        *this->face_quadrature,
+        *this->mapping);
+
+      // Calculate the beta force
+      this->flow_control.calculate_beta(
+        flow_rate,
+        this->simulation_control->get_time_step(),
+        this->simulation_control->get_step_number());
+
+      // Showing results (area and flow rate)
+      if (this->simulation_parameters.flow_control.verbosity ==
+            Parameters::Verbosity::verbose &&
+          this->simulation_control->get_step_number() > 0 &&
+          this->this_mpi_process == 0)
+        {
+          std::cout << "+------------------------------------------+"
+                    << std::endl;
+          std::cout << "|  Flow control summary                    |"
+                    << std::endl;
+          std::cout << "+------------------------------------------+"
+                    << std::endl;
+          this->pcout << "Inlet area : " << flow_rate.second << std::endl;
+          this->pcout << "Flow rate : " << flow_rate.first << std::endl;
+          this->pcout
+            << "Beta applied : "
+            << this->flow_control.get_beta()[this->simulation_parameters
+                                               .flow_control.flow_direction]
+            << "\n"
+            << std::endl;
+        }
     }
 }
 

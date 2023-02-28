@@ -86,6 +86,23 @@ GLSVANSSolver<dim>::setup_dofs()
   void_fraction_constraints.reinit(locally_relevant_dofs_voidfraction);
   DoFTools::make_hanging_node_constraints(void_fraction_dof_handler,
                                           void_fraction_constraints);
+
+  // Define constaints for periodic boundary conditions
+  auto &boundary_conditions =
+    this->cfd_dem_simulation_parameters.cfd_parameters.boundary_conditions;
+  for (unsigned int i_bc = 0; i_bc < boundary_conditions.size; ++i_bc)
+    {
+      if (this->simulation_parameters.boundary_conditions.type[i_bc] ==
+          BoundaryConditions::BoundaryType::periodic)
+        {
+          DoFTools::make_periodicity_constraints(
+            void_fraction_dof_handler,
+            boundary_conditions.id[i_bc],
+            boundary_conditions.periodic_id[i_bc],
+            boundary_conditions.periodic_direction[i_bc],
+            void_fraction_constraints);
+        }
+    }
   void_fraction_constraints.close();
 
   nodal_void_fraction_relevant.reinit(locally_owned_dofs_voidfraction,
@@ -1314,7 +1331,7 @@ GLSVANSSolver<dim>::assemble_local_system_matrix(
                       this->previous_solutions,
                       this->solution_stages,
                       this->forcing_function,
-                      this->beta);
+                      this->flow_control.get_beta());
 
   typename DoFHandler<dim>::active_cell_iterator void_fraction_cell(
     &(*(this->triangulation)),
@@ -1422,7 +1439,7 @@ GLSVANSSolver<dim>::assemble_local_system_rhs(
                       this->previous_solutions,
                       this->solution_stages,
                       this->forcing_function,
-                      this->beta);
+                      this->flow_control.get_beta());
 
   typename DoFHandler<dim>::active_cell_iterator void_fraction_cell(
     &(*(this->triangulation)),
@@ -1732,7 +1749,7 @@ GLSVANSSolver<dim>::solve()
         {
           NavierStokesBase<dim, TrilinosWrappers::MPI::Vector, IndexSet>::
             refine_mesh();
-          vertices_cell_mapping();
+          // vertices_cell_mapping();
           calculate_void_fraction(this->simulation_control->get_current_time(),
                                   false);
           this->iterate();
