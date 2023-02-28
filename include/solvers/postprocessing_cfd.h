@@ -272,7 +272,35 @@ calculate_flow_rate(const DoFHandler<dim> &    dof_handler,
                     const Quadrature<dim - 1> &face_quadrature_formula,
                     const Mapping<dim> &       mapping);
 
-
+/**
+ * @brief calculate_flow_rate. This function calculates the volumetric flow
+ * rate at the selected boundary. It actually calculates the flow rate through
+ * the summation of the value at each cell surface with the normal vector,
+ * the velocity value and the area.
+ *
+ * @param dof_handler. The argument used to get velocity at quadrature points
+ *
+ * @param void_fraction_dof_handler. The argument used to get void fraction at quadrature points
+ *
+ * @param present_solution. The vector which contains the velocity values
+ *
+ * @param present_void_fraction_solution. The vector which contains the void fraction values
+ *
+ * @param boundary_id. The inlet boundary
+ *
+ * @param face_quadrature_formula The face quadrature formula for the calculation
+ *
+ * @param mapping The mapping of the simulation
+ */
+template <int dim, typename VectorType>
+std::pair<double, double>
+calculate_flow_rate(const DoFHandler<dim> &    dof_handler,
+                    const DoFHandler<dim> &    void_fraction_dof_handler,
+                    const VectorType &         present_solution,
+                    const VectorType &         present_void_fraction_solution,
+                    const unsigned int &       boundary_id,
+                    const Quadrature<dim - 1> &face_quadrature_formula,
+                    const Mapping<dim> &       mapping);
 
 #  define lethe_postprocessing_cfd_h
 

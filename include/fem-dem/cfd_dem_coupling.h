@@ -211,6 +211,14 @@ private:
   void
   postprocess_fd(bool first_iteration) override;
 
+  /**
+   * @brief dynamic_flow_control
+   * Dynamic flow control calculation that take into account the void fraction
+   * for the flow rate calculation
+   */
+  void
+  dynamic_flow_control() override;
+
   void
   post_processing() override;
 

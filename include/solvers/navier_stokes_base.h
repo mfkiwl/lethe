@@ -276,21 +276,12 @@ protected:
   postprocessing_torques(const VectorType &evaluation_point);
 
   /**
-   * @brief calculate_flow_rate
-   * @return inlet flow rate and area
-   * Post-processing function
-   * Calculate the volumetric flow rate on the inlet boundary
-   */
-  void
-  postprocessing_flow_rate(const VectorType &evaluation_point);
-
-  /**
    * @brief dynamic_flow_control
    * If set to enable, dynamic_flow_control allows to control the flow by
    * calculate a beta coefficient at each time step added to the force of the
    * source term for gls_navier_stokes solver.
    */
-  void
+  virtual void
   dynamic_flow_control();
 
 
@@ -430,8 +421,6 @@ protected:
   // Dynamic flow control
   FlowControl<dim> flow_control;
   Tensor<1, dim>   beta;
-  // Inlet flow rate and area
-  std::pair<double, double> flow_rate;
 
   // Constraints for Dirichlet boundary conditions
   AffineConstraints<double> zero_constraints;
