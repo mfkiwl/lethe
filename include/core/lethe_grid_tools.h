@@ -50,6 +50,23 @@ namespace LetheGridTools
 
   /**
    * @brief
+   * Map the vertex index to the cells that includes that vertex.
+   *
+   * @param dof_handler DofHandler of the triangulation on which to create the map
+   *
+   * @param vertices_cell_map Object to which the data will be written
+   */
+
+  template <int dim>
+  void
+  vertices_cell_mapping_with_periodic_boundaries(
+    const DoFHandler<dim> &dof_handler,
+    std::map<unsigned int,
+             std::set<typename DoFHandler<dim>::active_cell_iterator>>
+      &vertices_cell_map);
+
+  /**
+   * @brief
    * Return the cell around a point by starting from the least refined level and
    * iterating over children.
    *

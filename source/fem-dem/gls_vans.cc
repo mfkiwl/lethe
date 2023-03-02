@@ -59,6 +59,28 @@ GLSVANSSolver<dim>::GLSVANSSolver(CFDDEMSimulationParameters<dim> &nsparam)
                      DEM::get_number_properties())
 {
   previous_void_fraction.resize(maximum_number_of_previous_solutions());
+
+  // Check if the simulation has periodic boundaries for fluid.
+  std::vector<BoundaryConditions::BoundaryType> boundary_conditions_types =
+    this->cfd_dem_simulation_parameters.cfd_parameters.boundary_conditions.type;
+
+  unsigned int n_pbc = 0;
+  for (unsigned int i_bc = 0; i_bc < boundary_conditions_types.size(); ++i_bc)
+    {
+      if (boundary_conditions_types[i_bc] ==
+          BoundaryConditions::BoundaryType::periodic)
+        {
+          if (n_pbc++ > 1)
+            {
+              throw std::runtime_error(
+                "More than one periodic boundary condition is not supported with GLS VANS solver.");
+            }
+          else
+            {
+              has_periodic_boundaries = true;
+            }
+        }
+    }
 }
 
 template <int dim>
@@ -87,7 +109,7 @@ GLSVANSSolver<dim>::setup_dofs()
   DoFTools::make_hanging_node_constraints(void_fraction_dof_handler,
                                           void_fraction_constraints);
 
-  // Define constaints for periodic boundary conditions
+  // Define constraints for periodic boundary conditions
   auto &boundary_conditions =
     this->cfd_dem_simulation_parameters.cfd_parameters.boundary_conditions;
   for (unsigned int i_bc = 0; i_bc < boundary_conditions.size; ++i_bc)
@@ -95,14 +117,18 @@ GLSVANSSolver<dim>::setup_dofs()
       if (this->simulation_parameters.boundary_conditions.type[i_bc] ==
           BoundaryConditions::BoundaryType::periodic)
         {
+          periodic_direction = boundary_conditions.periodic_direction[i_bc];
           DoFTools::make_periodicity_constraints(
             void_fraction_dof_handler,
             boundary_conditions.id[i_bc],
             boundary_conditions.periodic_id[i_bc],
-            boundary_conditions.periodic_direction[i_bc],
+            periodic_direction,
             void_fraction_constraints);
+          periodic_offset = get_periodic_offset(boundary_conditions.id[i_bc]);
+          std::cout << "Periodic offset: " << periodic_offset << std::endl;
         }
     }
+
   void_fraction_constraints.close();
 
   nodal_void_fraction_relevant.reinit(locally_owned_dofs_voidfraction,
@@ -400,6 +426,10 @@ GLSVANSSolver<dim>::vertices_cell_mapping()
 
   LetheGridTools::vertices_cell_mapping(this->void_fraction_dof_handler,
                                         vertices_to_cell);
+
+  if (has_periodic_boundaries)
+    LetheGridTools::vertices_cell_mapping_with_periodic_boundaries(
+      this->void_fraction_dof_handler, vertices_to_periodic_cell);
 }
 
 template <int dim>
@@ -554,8 +584,11 @@ GLSVANSSolver<dim>::quadrature_centered_sphere_method(bool load_balance_step)
           auto active_neighbors =
             LetheGridTools::find_cells_around_cell<dim>(vertices_to_cell, cell);
 
-          // Array of real locations for the quadrature
-          // points
+          auto active_periodic_neighbors =
+            LetheGridTools::find_cells_around_cell<dim>(
+              vertices_to_periodic_cell, cell);
+
+          // Array of real locations for the neighbor quadrature points
           std::vector<std::vector<Point<dim>>>
             neighbor_quadrature_point_location(
               active_neighbors.size(), std::vector<Point<dim>>(n_q_points));
@@ -565,6 +598,20 @@ GLSVANSSolver<dim>::quadrature_centered_sphere_method(bool load_balance_step)
               fe_values_void_fraction.reinit(active_neighbors[n]);
 
               neighbor_quadrature_point_location[n] =
+                fe_values_void_fraction.get_quadrature_points();
+            }
+
+          // Array of real locations for the periodic neighbor quadrature points
+          std::vector<std::vector<Point<dim>>>
+            periodic_neighbor_quadrature_point_location(
+              active_periodic_neighbors.size(),
+              std::vector<Point<dim>>(n_q_points));
+
+          for (unsigned int n = 0; n < active_periodic_neighbors.size(); n++)
+            {
+              fe_values_void_fraction.reinit(active_periodic_neighbors[n]);
+
+              periodic_neighbor_quadrature_point_location[n] =
                 fe_values_void_fraction.get_quadrature_points();
             }
 
@@ -585,8 +632,7 @@ GLSVANSSolver<dim>::quadrature_centered_sphere_method(bool load_balance_step)
                   // Define the volume of the reference sphere to be used as the
                   // averaging volume for the QCM
                   double reference_sphere_volume;
-                  if (this->cfd_dem_simulation_parameters.void_fraction
-                        ->qcm_sphere_diameter < 1e-16)
+                  if (qcm_sphere_diameter < 1e-16)
                     {
                       // Volume of sphere equals volume of cell
                       if (this->cfd_dem_simulation_parameters.void_fraction
@@ -656,6 +702,107 @@ GLSVANSSolver<dim>::quadrature_centered_sphere_method(bool load_balance_step)
                                                     volumetric_contribution] +=
                                 particle_sphere_intersection_3d(
                                   r_particle, R_sphere, neighbor_distance);
+                          }
+                      }
+                  }
+                }
+
+              // Loop over periodic neighboring cells to determine if a given
+              // periodic neighboring particle contributes to the solid volume
+              // of the current reference sphere
+              //***********************************************************************
+              for (unsigned int n = 0; n < active_periodic_neighbors.size();
+                   n++)
+                {
+                  // Define the volume of the reference sphere to be used as the
+                  // averaging volume for the QCM
+                  double reference_sphere_volume;
+                  if (qcm_sphere_diameter < 1e-16)
+                    {
+                      // Volume of sphere equals volume of cell
+                      if (this->cfd_dem_simulation_parameters.void_fraction
+                            ->qcm_sphere_equal_cell_volume == true)
+                        reference_sphere_volume =
+                          active_periodic_neighbors[n]->measure();
+                      else
+                        // Volume of sphere based on R_s = h_omega
+                        reference_sphere_volume =
+                          M_PI *
+                          pow((2 * pow(active_periodic_neighbors[n]->measure(),
+                                       1. / dim)),
+                              dim) /
+                          (2 * dim);
+                    }
+                  else
+                    { // Volume of sphere based on R_s = user defined
+                      reference_sphere_volume =
+                        M_PI * pow((qcm_sphere_diameter), dim) / (2 * dim);
+                    }
+
+                  // From the defined volume, get the actual radius of the
+                  // reference sphere
+                  if (dim == 2)
+                    R_sphere = (std::sqrt(reference_sphere_volume / M_PI));
+                  else if (dim == 3)
+                    R_sphere =
+                      (pow(3 * reference_sphere_volume / (4 * M_PI), 1. / 3.));
+                  {
+                    // Loop over quadrature points
+                    for (unsigned int k = 0; k < n_q_points; ++k)
+                      {
+                        // Adjust the location of the particle in the cell to
+                        // account for the periodicity. If the position of the
+                        // periodic cell if greater than the position of the
+                        // current cell, the particle location needs a positif
+                        // correction, and vice versa
+                        const Point<dim> particle_location =
+                          (active_periodic_neighbors[n]
+                             ->center()[periodic_direction] >
+                           cell->center()[periodic_direction]) ?
+                            particle.get_location() + periodic_offset :
+                            particle.get_location() - periodic_offset;
+
+                        // Distance between particle and quadrature point
+                        double periodic_neighbor_distance =
+                          particle_location.distance(
+                            periodic_neighbor_quadrature_point_location[n][k]);
+
+                        // Particle completely in reference sphere
+                        if (periodic_neighbor_distance <=
+                            (R_sphere - r_particle))
+                          {
+                            particle_properties
+                              [DEM::PropertiesIndex::volumetric_contribution] +=
+                              M_PI *
+                              pow(particle_properties[DEM::PropertiesIndex::dp],
+                                  dim) /
+                              (2.0 * dim);
+                          }
+                        // Particle completely outside reference
+                        // sphere. Do absolutely nothing.
+
+                        // Particle partially in reference sphere
+                        else if ((periodic_neighbor_distance >
+                                  (R_sphere - r_particle)) &&
+                                 (periodic_neighbor_distance <
+                                  (R_sphere + r_particle)))
+                          {
+                            if (dim == 2)
+                              particle_properties[DEM::PropertiesIndex::
+                                                    volumetric_contribution] +=
+                                particle_circle_intersection_2d(
+                                  r_particle,
+                                  R_sphere,
+                                  periodic_neighbor_distance);
+
+                            else if (dim == 3)
+
+                              particle_properties[DEM::PropertiesIndex::
+                                                    volumetric_contribution] +=
+                                particle_sphere_intersection_3d(
+                                  r_particle,
+                                  R_sphere,
+                                  periodic_neighbor_distance);
                           }
                       }
                   }
@@ -737,11 +884,11 @@ GLSVANSSolver<dim>::quadrature_centered_sphere_method(bool load_balance_step)
           auto active_neighbors =
             LetheGridTools::find_cells_around_cell<dim>(vertices_to_cell, cell);
 
+
           for (unsigned int q = 0; q < n_q_points; ++q)
             {
               particles_volume_in_sphere = 0;
               quadrature_void_fraction   = 0;
-              std::vector<double> distance_to_face_vector;
 
               for (unsigned int m = 0; m < active_neighbors.size(); m++)
                 {
@@ -801,6 +948,87 @@ GLSVANSSolver<dim>::quadrature_centered_sphere_method(bool load_balance_step)
                         }
                     }
                 }
+
+
+              // Periodic neighbors of the current cell
+              auto active_periodic_neighbors =
+                LetheGridTools::find_cells_around_cell<dim>(
+                  vertices_to_periodic_cell, cell);
+              for (unsigned int m = 0; m < active_periodic_neighbors.size();
+                   m++)
+                {
+                  // Loop over particles in neighbor cell
+                  // Begin and end iterator for particles in neighbor cell
+
+                  const auto pic = particle_handler.particles_in_cell(
+                    active_periodic_neighbors[m]);
+
+                  for (auto &particle : pic)
+                    {
+                      double distance            = 0;
+                      auto   particle_properties = particle.get_properties();
+                      const double r_particle =
+                        particle_properties[DEM::PropertiesIndex::dp] * 0.5;
+                      double single_particle_volume =
+                        M_PI * pow((r_particle * 2), dim) / (2 * dim);
+
+                      // Adjust the location of the particle in the cell to
+                      // account for the periodicity. If the position of the
+                      // periodic cell if greater than the position of the
+                      // current cell, the particle location needs a negative
+                      // correction, and vice versa. Since the particle is in
+                      // the periodic cell, this correction is the inverse of
+                      // the correction for the volumetric contribution
+                      const Point<dim> particle_location =
+                        (active_periodic_neighbors[m]
+                           ->center()[periodic_direction] >
+                         cell->center()[periodic_direction]) ?
+                          particle.get_location() - periodic_offset :
+                          particle.get_location() + periodic_offset;
+
+                      // Distance between particle and quadrature point
+                      // centers
+                      distance = particle_location.distance(
+                        quadrature_point_location[q]);
+
+                      // Particle completely in reference sphere
+                      if (distance <= (R_sphere - r_particle))
+                        particles_volume_in_sphere +=
+                          (M_PI *
+                           pow(particle_properties[DEM::PropertiesIndex::dp],
+                               dim) /
+                           (2.0 * dim)) *
+                          single_particle_volume /
+                          particle_properties
+                            [DEM::PropertiesIndex::volumetric_contribution];
+
+                      // Particle completely outside reference sphere. Do
+                      // absolutely nothing.
+
+                      // Particle partially in reference sphere
+                      else if ((distance > (R_sphere - r_particle)) &&
+                               (distance < (R_sphere + r_particle)))
+                        {
+                          if (dim == 2)
+                            particles_volume_in_sphere +=
+                              particle_circle_intersection_2d(r_particle,
+                                                              R_sphere,
+                                                              distance) *
+                              single_particle_volume /
+                              particle_properties
+                                [DEM::PropertiesIndex::volumetric_contribution];
+                          else if (dim == 3)
+                            particles_volume_in_sphere +=
+                              particle_sphere_intersection_3d(r_particle,
+                                                              R_sphere,
+                                                              distance) *
+                              single_particle_volume /
+                              particle_properties
+                                [DEM::PropertiesIndex::volumetric_contribution];
+                        }
+                    }
+                }
+
 
               // We use the volume of the cell as it is equal to the volume
               // of the sphere

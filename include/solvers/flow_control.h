@@ -71,6 +71,15 @@ public:
     return beta;
   }
 
+  /**
+   * @brief get_last_flow_rate. This function gives the last flow rate
+   */
+  double
+  get_last_flow_rate()
+  {
+    return flow_rate_1n;
+  }
+
   void
   save(std::string prefix);
 
