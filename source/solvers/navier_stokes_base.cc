@@ -223,7 +223,7 @@ NavierStokesBase<dim, VectorType, DofsType>::dynamic_flow_control()
       // Calculate the flow rate
       std::pair<double, double> flow_rate =
         calculate_flow_rate(this->dof_handler,
-                            evaluation_point,
+                            this->present_solution,
                             simulation_parameters.flow_control.boundary_flow_id,
                             *this->face_quadrature,
                             *this->mapping);
@@ -247,7 +247,7 @@ NavierStokesBase<dim, VectorType, DofsType>::dynamic_flow_control()
           this->pcout << "Inlet area : " << flow_rate.second << std::endl;
           this->pcout << "Flow rate : " << flow_rate.first << std::endl;
           this->pcout
-            << "Beta applied : "
+            << "Calculated beta : "
             << flow_control
                  .get_beta()[simulation_parameters.flow_control.flow_direction]
             << "\n"

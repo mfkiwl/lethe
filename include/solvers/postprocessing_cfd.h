@@ -274,9 +274,10 @@ calculate_flow_rate(const DoFHandler<dim> &    dof_handler,
 
 /**
  * @brief calculate_flow_rate. This function calculates the volumetric flow
- * rate at the selected boundary. It actually calculates the flow rate through
- * the summation of the value at each cell surface with the normal vector,
- * the velocity value and the area.
+ * rate at the selected boundary for the solver GLS VANS. It actually calculates
+ * the flow rate through the summation of the value at each cell surface with
+ * the normal vector, the velocity value and the area while taking into account
+ * the void fraction.
  *
  * @param dof_handler. The argument used to get velocity at quadrature points
  *

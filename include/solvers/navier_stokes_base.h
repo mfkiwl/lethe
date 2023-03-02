@@ -420,7 +420,6 @@ protected:
 
   // Dynamic flow control
   FlowControl<dim> flow_control;
-  Tensor<1, dim>   beta;
 
   // Constraints for Dirichlet boundary conditions
   AffineConstraints<double> zero_constraints;

@@ -92,9 +92,50 @@ private:
   void
   read_dem();
 
+  Tensor<1, dim>
+  get_periodic_offset(unsigned int periodic_boundary_id) const
+  {
+    // Iterating over the active cells in the triangulation
+    for (const auto &cell : (*this->triangulation).active_cell_iterators())
+      {
+        if (cell->is_locally_owned() || cell->is_ghost())
+          {
+            if (cell->at_boundary())
+              {
+                // Iterating over cell faces
+                for (unsigned int face_id = 0; face_id < cell->n_faces();
+                     ++face_id)
+                  {
+                    unsigned int face_boundary_id =
+                      cell->face(face_id)->boundary_id();
+
+                    // Check if face is on the periodic boundary 0, if so, get
+                    // the periodic offset for one pair of periodic faces only
+                    // since only on periodic boundary align with axis is
+                    // currently implemented
+                    if (face_boundary_id == periodic_boundary_id)
+                      {
+                        Point<dim> face_center = cell->face(face_id)->center();
+                        auto periodic_cell = cell->periodic_neighbor(face_id);
+                        unsigned int periodic_face_id =
+                          cell->periodic_neighbor_face_no(face_id);
+                        Point<dim> periodic_face_center =
+                          periodic_cell->face(periodic_face_id)->center();
+
+                        Tensor<1, dim> offset =
+                          periodic_face_center - face_center;
+
+                        return offset;
+                      }
+                  }
+              }
+          }
+      }
+  }
+
 protected:
   /**
-   * @brief asocciate the degrees of freedom to each vertex of the finite elements
+   * @brief associate the degrees of freedom to each vertex of the finite elements
    * and initialize the void fraction
    */
   virtual void
@@ -251,9 +292,15 @@ protected:
   const double GLS_u_scale = 1;
   double       pressure_drop;
 
+  bool           has_periodic_boundaries;
+  Tensor<1, dim> periodic_offset;
+  unsigned int   periodic_direction;
   std::map<unsigned int,
            std::set<typename DoFHandler<dim>::active_cell_iterator>>
     vertices_to_cell;
+  std::map<unsigned int,
+           std::set<typename DoFHandler<dim>::active_cell_iterator>>
+    vertices_to_periodic_cell;
 
 protected:
   Particles::ParticleHandler<dim, dim> particle_handler;
