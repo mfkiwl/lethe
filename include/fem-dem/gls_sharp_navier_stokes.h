@@ -338,8 +338,8 @@ private:
 
   /**
    * @brief
-   *This function abstracts the generation of cell candidates that possibly are
-   *cut
+   * This function abstracts the generation of cell candidates that possibly are
+   * cut
    */
   std::pair<bool, bool>
   generate_cut_cell_candidates(
@@ -579,6 +579,11 @@ private:
   std::map<typename DoFHandler<dim>::active_cell_iterator,
            std::tuple<bool, unsigned int>>
     cells_inside_map;
+
+  // The boolean is "treated" which is used not to loop again on the treated
+  // cells
+  std::map<typename DoFHandler<dim>::active_cell_iterator, bool>
+    principal_fluid_map;
   /*
    * This map is used to keep in memory which DOFs already have an IB equation
    * imposed on them in order to avoid writing multiple time the same equation.

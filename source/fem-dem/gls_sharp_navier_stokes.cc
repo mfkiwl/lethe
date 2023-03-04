@@ -244,6 +244,105 @@ GLSSharpNavierStokesSolver<dim>::generate_cut_cells_map()
                                     particle_id_in_which_this_cell_is_embedded};
         }
     }
+
+  // After generating these maps, we check if there are isolated parts on the
+  // fluid that need to be removed (considered as inside instead). We proceed
+  // by setting one cell as a known fluid cell, then we propagate the status of
+  // principal fluid region to its neighbors, until all connected fluid cells
+  // taken into account. The remaining fluid cells are considered disconnected,
+  // which is also the case for the connected cut cells.
+  std::cout << "We begin removing disconnected fluid parts" << std::endl;
+  principal_fluid_map.clear();
+  Point<dim> initial_point;
+  for (int d = 0; d < dim; d++)
+    initial_point[d] = -0.95; // TODO ENLEVER LE HARDCODE UNE FOIS QUE CA MARCHE
+  const auto initial_cell =
+    LetheGridTools::find_cell_around_point_with_tree(this->dof_handler,
+                                                     initial_point);
+  principal_fluid_map[initial_cell] = false;
+  bool   propagation_in_progress    = true;
+  size_t compteur                   = 0;
+  while (propagation_in_progress)
+    {
+      compteur += 1;
+      std::cout << "Compteur du nombre de propagations: " << compteur
+                << std::endl;
+      propagation_in_progress = false; // until proven otherwise
+      for (auto iter = principal_fluid_map.begin();
+           iter != principal_fluid_map.end();
+           ++iter)
+        {
+          const auto cell    = iter->first;
+          const bool treated = iter->second;
+          if (treated)
+            continue;
+          // Find the cells that share a vertex with the original cell.
+          std::vector<typename DoFHandler<dim>::active_cell_iterator>
+            active_neighbors_set =
+              LetheGridTools::find_cells_around_cell<dim>(vertices_to_cell,
+                                                          cell);
+          // Loop over that group of cells
+          for (unsigned int i = 0; i < active_neighbors_set.size(); ++i)
+            {
+              auto       neighbor_cell = active_neighbors_set[i];
+              const auto iterator = principal_fluid_map.find(neighbor_cell);
+              if (iterator ==
+                  principal_fluid_map
+                    .end()) // if the neighbor is not already accounted for
+                {
+                  if (neighbor_cell->is_locally_owned() ||
+                      neighbor_cell->is_ghost())
+                    {
+                      bool cell_is_cut;
+                      bool cell_inside;
+                      std::tie(cell_is_cut, std::ignore, std::ignore) =
+                        cut_cells_map[neighbor_cell];
+                      bool cell_is_inside;
+                      std::tie(cell_is_inside, std::ignore) =
+                        cells_inside_map[neighbor_cell];
+                      if (!cell_is_cut && !cell_is_inside) // cell_is_fluid
+                        {
+                          propagation_in_progress =
+                            true; // propagation is still going on
+                          principal_fluid_map[neighbor_cell] = false;
+                        }
+                    }
+                }
+            }
+          principal_fluid_map[cell] = true;
+        }
+    }
+  std::cout << "Propagation is over" << std::endl;
+  size_t      compteur_cell_not_connected = 0;
+  const auto &cell_iterator_2 = this->dof_handler.active_cell_iterators();
+  for (const auto &cell : cell_iterator_2)
+    {
+      if (cell->is_locally_owned() || cell->is_ghost())
+        {
+          bool cell_is_cut;
+          std::tie(cell_is_cut, std::ignore, std::ignore) = cut_cells_map[cell];
+          bool cell_is_inside;
+          std::tie(cell_is_inside, std::ignore) = cells_inside_map[cell];
+          if (!cell_is_inside && !cell_is_cut) // cell_is_fluid
+            {
+              const auto iterator = principal_fluid_map.find(cell);
+              if (iterator == principal_fluid_map.end())
+                {
+                  compteur_cell_not_connected += 1;
+                  std::cout
+                    << "cell is not connected: " << compteur_cell_not_connected
+                    << std::endl;
+                  // We have found a fluid cell that is not connected to the
+                  // principal fluid
+                  cells_inside_map[cell] = {true,
+                                            0}; // TODO CHOOSE A BETTER INTEGER
+                }
+            }
+        }
+    }
+
+
+  // Now, we will removed islands of cut cells in the fluid and solid regions
 }
 
 template <int dim>
@@ -1339,6 +1438,8 @@ GLSSharpNavierStokesSolver<dim>::output_field_hook(DataOut<dim> &data_out)
     std::make_shared<LevelsetPostprocessor<dim>>(combined_shapes);
   data_out.add_data_vector(this->present_solution, *levelset_postprocessor);
   Vector<float> cell_cuts(this->triangulation->n_active_cells());
+  Vector<float> cells_inside(this->triangulation->n_active_cells());
+  Vector<float> cells_principal_fluid(this->triangulation->n_active_cells());
 
   // If the enable extra verbose output is activated we add an output field to
   // the results where we identify which particle cuts each cell of the domain.
@@ -1358,9 +1459,28 @@ GLSSharpNavierStokesSolver<dim>::output_field_hook(DataOut<dim> &data_out)
           else
             cell_cuts(i) = -1;
 
+          bool cell_is_inside;
+          std::tie(cell_is_inside, particle_id) = cells_inside_map[cell];
+          if (cell_is_inside)
+            cells_inside(i) = particle_id;
+          else
+            cells_inside(i) = -1;
+
+          const auto iterator = principal_fluid_map.find(cell);
+          if (iterator == principal_fluid_map.end())
+            {
+              cells_principal_fluid(i) = -1;
+            }
+          else
+            {
+              cells_principal_fluid(i) = 0;
+            }
+
           i += 1;
         }
       data_out.add_data_vector(cell_cuts, "cell_cut");
+      data_out.add_data_vector(cells_inside, "cell_inside");
+      data_out.add_data_vector(cells_principal_fluid, "main_fluid");
     }
 }
 
