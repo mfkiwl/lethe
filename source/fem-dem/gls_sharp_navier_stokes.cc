@@ -1914,7 +1914,7 @@ GLSSharpNavierStokesSolver<dim>::integrate_particles()
             }
           // Check if the particle is in the domain. Throw an error if it's
           // the case.
-          try
+         /* try
             {
               const auto &cell =
                 LetheGridTools::find_cell_around_point_with_tree(
@@ -1929,7 +1929,7 @@ GLSSharpNavierStokesSolver<dim>::integrate_particles()
                 << particles[p].position[0] << ", " << particles[p].position[1]
                 << ", " << particles[p].position[2] << std::endl;
               save_particle_state_is_used = true;
-            }
+            }*/
 
           // For the rotation velocity : same logic as the velocity.
           auto         inv_inertia    = invert(particles[p].inertia);
@@ -4014,10 +4014,10 @@ GLSSharpNavierStokesSolver<dim>::solve()
           else
             generate_cut_cells_map();
 
-          ib_dem.update_particles_boundary_contact(this->particles,
+          /*ib_dem.update_particles_boundary_contact(this->particles,
                                                    this->dof_handler,
                                                    *this->face_quadrature,
-                                                   *this->mapping);
+                                                   *this->mapping);*/
           ib_dem.update_contact_candidates();
           this->iterate();
         }
@@ -4034,10 +4034,10 @@ GLSSharpNavierStokesSolver<dim>::solve()
             optimized_generate_cut_cells_map();
           else
             generate_cut_cells_map();
-          ib_dem.update_particles_boundary_contact(this->particles,
+         /* ib_dem.update_particles_boundary_contact(this->particles,
                                                    this->dof_handler,
                                                    *this->face_quadrature,
-                                                   *this->mapping);
+                                                   *this->mapping);*/
           if (this->simulation_control->get_step_number() == 0 ||
               this->simulation_control->get_step_number() %
                   this->simulation_parameters.particlesParameters
