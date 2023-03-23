@@ -95,6 +95,8 @@ private:
   Tensor<1, dim>
   get_periodic_offset(unsigned int periodic_boundary_id) const
   {
+    Tensor<1, dim> offset;
+
     // Iterating over the active cells in the triangulation
     for (const auto &cell : (*this->triangulation).active_cell_iterators())
       {
@@ -122,8 +124,7 @@ private:
                         Point<dim> periodic_face_center =
                           periodic_cell->face(periodic_face_id)->center();
 
-                        Tensor<1, dim> offset =
-                          periodic_face_center - face_center;
+                        offset = periodic_face_center - face_center;
 
                         return offset;
                       }
@@ -131,6 +132,9 @@ private:
               }
           }
       }
+
+    // No cells found on the periodic boundary on this processor, return zero
+    return offset;
   }
 
 protected:

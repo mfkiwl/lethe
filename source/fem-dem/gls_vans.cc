@@ -124,8 +124,14 @@ GLSVANSSolver<dim>::setup_dofs()
             boundary_conditions.periodic_id[i_bc],
             periodic_direction,
             void_fraction_constraints);
-          periodic_offset = get_periodic_offset(boundary_conditions.id[i_bc]);
-          std::cout << "Periodic offset: " << periodic_offset << std::endl;
+
+          // Get periodic offset if void fraction method is qcm
+          if (this->cfd_dem_simulation_parameters.void_fraction->mode ==
+              Parameters::VoidFractionMode::qcm)
+            {
+              periodic_offset =
+                get_periodic_offset(boundary_conditions.id[i_bc]);
+            }
         }
     }
 
