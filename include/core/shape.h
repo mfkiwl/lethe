@@ -1577,7 +1577,7 @@ public:
   reset_iterable_nodes(
     const typename DoFHandler<dim>::active_cell_iterator cell);
 
-private:
+public:
   size_t                               number_of_nodes;
   std::shared_ptr<HyperRectangle<dim>> bounding_box;
   std::vector<size_t>                  iterable_nodes;
@@ -1598,13 +1598,145 @@ private:
   int    levels_not_precalculated;
   double maximal_support_radius;
 
-public:
   std::vector<size_t>           nodes_id;
   std::vector<double>           weights;
   std::vector<Point<dim>>       nodes_positions;
   std::vector<Point<dim>>       rotated_nodes_positions;
   std::vector<double>           support_radii;
   std::vector<RBFBasisFunction> basis_functions;
+};
+
+/**
+ * @tparam dim Dimension of the shape
+ * @class RBF Shapes express the signed distance function as a linear
+ * combination of Radial Basis Functions (RBF), which have a defined support
+ * radius and basis function. A collection of nodes and weights compose the
+ * object. Outside of the domain covered by the nodes, the distance is computed
+ * by using the distance to a bounding box instead.
+ */
+template <int dim>
+class FakeRBFShape : public RBFShape<dim>
+{
+public:
+  /**
+   * @brief FakeRBFShape
+   * @param support_radius the scaling of the reach of the nodes
+   * @param basis_function the basis function that is used to parametrize the RBF object
+   * @param weight the weighting associated to each node for the sum operation
+   * @param nodes the center of each basis function
+   * @param position the location of the RBF shape
+   * @param orientation the orientation of the shape in relation to each main
+   * axis
+   */
+  FakeRBFShape<dim>(const std::vector<double> &support_radii,
+                    const std::vector<typename RBFShape<dim>::RBFBasisFunction>
+                      &                            basis_functions,
+                    const std::vector<double> &    weights,
+                    const std::vector<Point<dim>> &nodes,
+                    const Point<dim> &             position,
+                    const Tensor<1, 3> &           orientation);
+
+  /**
+   * @brief FakeRBFShape
+   * @param shape_arguments the concatenated vector of all shape arguments for
+   * an RBF in the order: weights, support_radii, basis_functions, nodes_x,
+   * nodes_y, nodes_z
+   * @param position the location of the RBF shape
+   * @param orientation the orientation of the shape in relation to each main
+   * axis
+   */
+  FakeRBFShape<dim>(const std::vector<double> &shape_arguments,
+                    const Point<dim> &         position,
+                    const Tensor<1, 3> &       orientation);
+
+  /**
+   * @brief Return the evaluation of the signed distance function of this solid
+   * at the given point evaluation point. The computation and addition of the
+   * bounding box distance are necessary since the RBF nodes may not cover the
+   * whole simulation domain. In that case, it is assumed that the distance from
+   * the RBF object is approximately the same as the distance from the
+   * corresponding bounding box.
+   *
+   * @param evaluation_point The point at which the function will be evaluated
+   * @param component This parameter is not used, but it is necessary because Shapes inherit from the Function class of deal.II.
+   */
+  double
+  value(const Point<dim> & evaluation_point,
+        const unsigned int component = 0) const override;
+
+  /**
+   * @brief Return the evaluation of the signed distance function of this solid
+   * at the given point evaluation point with a guess for the cell containing
+   * the evaluation point
+   * @param evaluation_point The point at which the function will be evaluated
+   * @param cell The cell that is likely to contain the evaluation point
+   * @param component This parameter is not used, but it is necessary because Shapes inherit from the Function class of deal.II.
+   */
+  double
+  value_with_cell_guess(
+    const Point<dim> &evaluation_point,
+    const typename DoFHandler<dim>::active_cell_iterator /*cell*/,
+    const unsigned int /*component = 0*/) override;
+
+  /**
+   * @brief Return the analytical gradient of the distance
+   * @param evaluation_point The point at which the function will be evaluated
+   * @param cell The cell that is likely to contain the evaluation point
+   * @param component This parameter is not used, but it is necessary because Shapes inherit from the Function class of deal.II.
+   */
+  Tensor<1, dim>
+  gradient_with_cell_guess(
+    const Point<dim> &                                   evaluation_point,
+    const typename DoFHandler<dim>::active_cell_iterator cell,
+    const unsigned int component = 0) override;
+
+  /**
+   * @brief Return the analytical gradient of the distance for the current RBF
+   * @param evaluation_point The point at which the function will be evaluated
+   * @param component This parameter is not used, but it is necessary because Shapes inherit from the Function class of deal.II.
+   */
+  Tensor<1, dim>
+  gradient(const Point<dim> & evaluation_point,
+           const unsigned int component = 0) const override;
+
+  /**
+   * @brief Return a pointer to a copy of the Shape
+   */
+  std::shared_ptr<Shape<dim>>
+  static_copy() const override;
+
+  /**
+   * @brief
+   * Return the volume displaced by the solid
+   *
+   * @param fluid_density The density of the fluid that is displaced
+   */
+  double
+  displaced_volume(const double fluid_density) override;
+
+  /**
+   * @brief Establishes which nodes bring a non null contribution to the RBF
+   * @param cell the cell for which the likely nodes are to be found
+   * @param support_point one point that is located inside the cell
+   */
+  void
+  determine_likely_nodes_for_one_cell(
+    const typename DoFHandler<dim>::cell_iterator &cell,
+    const Point<dim>                               support_point);
+
+  /**
+   * @brief Sets the proper dof handler, then computes/updates the map of cells
+   * and their likely non-null nodes
+   * @param dof_handler the reference to the new dof_handler
+   * @param levels_not_precalculated the number of finer levels that won't be
+   * precalculated
+   */
+  void
+  update_precalculations(DoFHandler<dim> &  dof_handler,
+                         const unsigned int levels_not_precalculated);
+
+private:
+  std::shared_ptr<CompositeShape<dim>> composite_shape;
 };
 
 

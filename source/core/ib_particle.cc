@@ -252,6 +252,11 @@ IBParticle<dim>::update_precalculations(
       std::static_pointer_cast<RBFShape<dim>>(shape)->update_precalculations(
         updated_dof_handler, levels_not_precalculated);
     }
+  else if (typeid(*shape) == typeid(FakeRBFShape<dim>))
+    {
+      std::static_pointer_cast<FakeRBFShape<dim>>(shape)
+        ->update_precalculations(updated_dof_handler, levels_not_precalculated);
+    }
   else if (typeid(*shape) == typeid(CompositeShape<dim>))
     {
       std::static_pointer_cast<CompositeShape<dim>>(shape)

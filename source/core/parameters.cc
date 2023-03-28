@@ -2073,9 +2073,9 @@ namespace Parameters
       "type",
       "sphere",
       Patterns::Selection(
-        "sphere|hyper rectangle|ellipsoid|torus|cone|cylinder|cylindrical tube|cylindrical helix|cut hollow sphere|death star|rbf|opencascade|composite"),
+        "sphere|hyper rectangle|ellipsoid|torus|cone|cylinder|cylindrical tube|cylindrical helix|cut hollow sphere|death star|rbf|opencascade|composite|fake_rbf"),
       "The type of shape considered."
-      "Choices are <sphere|hyper rectangle|ellipsoid|torus|cone|cylinder|cylindrical tube|cylindrical helix|cut hollow sphere|death star|rbf|opencascade|composite>."
+      "Choices are <sphere|hyper rectangle|ellipsoid|torus|cone|cylinder|cylindrical tube|cylindrical helix|cut hollow sphere|death star|rbf|opencascade|composite|fake_rbf>."
       "The parameter for a sphere is: radius. "
       "The parameters for a hyper rectangle are, in order: x half length,"
       "y half length, z half length."

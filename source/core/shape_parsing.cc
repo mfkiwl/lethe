@@ -9,7 +9,8 @@ ShapeGenerator::initialize_shape(const std::string   type,
 {
   std::shared_ptr<Shape<dim>> shape;
   std::vector<double>         shape_arguments;
-  if (type == "rbf" || type == "composite" || type == "opencascade")
+  if (type == "rbf" || type == "fake_rbf" || type == "composite" ||
+      type == "opencascade")
     {
       shape = initialize_shape_from_file(type,
                                          shape_arguments_str,
@@ -141,7 +142,7 @@ ShapeGenerator::initialize_shape_from_file(const std::string   type,
 {
   std::shared_ptr<Shape<dim>> shape;
   std::vector<double>         shape_arguments;
-  if (type == "rbf")
+  if (type == "rbf" || type == "fake_rbf")
     {
       bool default_case = (file_name == "1"); // Default case. This is the
                                               // default argument for
@@ -185,8 +186,14 @@ ShapeGenerator::initialize_shape_from_file(const std::string   type,
             // and z
             shape_arguments.insert(shape_arguments.end(), 0.0);
         }
-      shape =
-        std::make_shared<RBFShape<dim>>(shape_arguments, position, orientation);
+      if (type == "rbf")
+        shape = std::make_shared<RBFShape<dim>>(shape_arguments,
+                                                position,
+                                                orientation);
+      else // if (type == "fake_rbf")
+        shape = std::make_shared<FakeRBFShape<dim>>(shape_arguments,
+                                                    position,
+                                                    orientation);
     }
   else if (type == "composite")
     {

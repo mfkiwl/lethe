@@ -1532,7 +1532,6 @@ RBFShape<dim>::evaluate_basis_function_derivative(
     }
 }
 
-
 template <int dim>
 bool
 RBFShape<dim>::has_shape_moved()
@@ -1570,6 +1569,191 @@ RBFShape<dim>::reset_iterable_nodes(
   else
     iterable_nodes.swap(nodes_id);
 }
+
+template <int dim>
+FakeRBFShape<dim>::FakeRBFShape(
+  const std::vector<double> &                                  support_radii,
+  const std::vector<typename RBFShape<dim>::RBFBasisFunction> &basis_functions,
+  const std::vector<double> &                                  weights,
+  const std::vector<Point<dim>> &                              nodes,
+  const Point<dim> &                                           position,
+  const Tensor<1, 3> &                                         orientation)
+  : RBFShape<dim>(support_radii,
+                  basis_functions,
+                  weights,
+                  nodes,
+                  position,
+                  orientation)
+{}
+
+template <int dim>
+FakeRBFShape<dim>::FakeRBFShape(const std::vector<double> &shape_arguments,
+                                const Point<dim> &         position,
+                                const Tensor<1, 3> &       orientation)
+  : RBFShape<dim>(shape_arguments, position, orientation)
+{}
+
+template <int dim>
+double
+FakeRBFShape<dim>::value_with_cell_guess(
+  const Point<dim> &                                   evaluation_point,
+  const typename DoFHandler<dim>::active_cell_iterator cell,
+  const unsigned int /*component*/)
+{
+  auto point_in_string = this->point_to_string(evaluation_point);
+  auto iterator        = this->value_cache.find(point_in_string);
+  if (iterator == this->value_cache.end())
+    {
+      double value = 0;
+      if (composite_shape)
+        {
+          value =
+            composite_shape->value_with_cell_guess(evaluation_point, cell, 0);
+          this->value_cache[point_in_string] = value;
+        }
+      else
+        {
+          value =
+            RBFShape<dim>::value_with_cell_guess(evaluation_point, cell, 0);
+        }
+      return value;
+    }
+  else
+    {
+      return this->value_cache[point_in_string];
+    }
+}
+
+template <int dim>
+Tensor<1, dim>
+FakeRBFShape<dim>::gradient_with_cell_guess(
+  const Point<dim> &                                   evaluation_point,
+  const typename DoFHandler<dim>::active_cell_iterator cell,
+  const unsigned int /*component*/)
+{
+  auto point_in_string = this->point_to_string(evaluation_point);
+  auto iterator        = this->value_cache.find(point_in_string);
+  if (iterator == this->value_cache.end())
+    {
+      Tensor<1, dim> gradient{};
+      if (composite_shape)
+        {
+          gradient =
+            composite_shape->gradient_with_cell_guess(evaluation_point, cell);
+          this->gradient_cache[point_in_string] = gradient;
+        }
+      else
+        {
+          gradient =
+            RBFShape<dim>::gradient_with_cell_guess(evaluation_point, cell);
+        }
+      return gradient;
+    }
+  else
+    {
+      return this->gradient_cache[point_in_string];
+    }
+}
+
+template <int dim>
+double
+FakeRBFShape<dim>::value(const Point<dim> &evaluation_point,
+                         const unsigned int /*component*/) const
+{
+  if (composite_shape)
+    return composite_shape->value(evaluation_point);
+  else
+    return RBFShape<dim>::value(evaluation_point);
+}
+
+template <int dim>
+Tensor<1, dim>
+FakeRBFShape<dim>::gradient(const Point<dim> &evaluation_point,
+                            const unsigned int /*component*/) const
+{
+  if (composite_shape)
+    return composite_shape->gradient(evaluation_point);
+  else
+    return RBFShape<dim>::gradient(evaluation_point);
+}
+
+template <int dim>
+void
+FakeRBFShape<dim>::update_precalculations(
+  DoFHandler<dim> &  dof_handler,
+  const unsigned int levels_not_precalculated)
+{
+  RBFShape<dim>::update_precalculations(dof_handler, levels_not_precalculated);
+
+  // We reinitialize the composite_shape
+  composite_shape.reset();
+  const auto &cell_iterator = dof_handler.active_cell_iterators();
+  std::vector<std::shared_ptr<Shape<dim>>> all_spheres;
+  // Map that keeps track of the nodes that are already processed
+  std::map<const typename DoFHandler<dim>::cell_iterator, bool>
+    processed_rbf_nodes{};
+  processed_rbf_nodes.clear();
+  Point<dim>     temp_closest_point{};
+  Tensor<1, dim> temp_half_lengths{};
+  for (unsigned int d = 0; d < dim; d++)
+    temp_half_lengths[d] = 0.5 * sqrt(3);
+
+  // Loop over all active cells
+  for (const auto &cell : cell_iterator)
+    {
+      if (cell->is_locally_owned() || cell->is_ghost())
+        {
+          auto iterator = processed_rbf_nodes.find(cell);
+          if (iterator == processed_rbf_nodes.end())
+            {
+              Point<dim> cell_barycenter = cell->barycenter();
+              double     cell_diameter   = cell->diameter();
+              double     levelset =
+                RBFShape<dim>::value_with_cell_guess(cell_barycenter, cell, 0);
+              if (levelset < 0)
+                {
+                  // std::shared_ptr<Shape<dim>> temp_shape =
+                  //  std::make_shared<Sphere<dim>>(cell_diameter,
+                  //                                cell_barycenter,
+                  //                                Point<3>{});
+                  std::shared_ptr<Shape<dim>> temp_shape =
+                    std::make_shared<HyperRectangle<dim>>(cell_diameter *
+                                                            temp_half_lengths,
+                                                          cell_barycenter,
+                                                          Point<3>{});
+                  all_spheres.push_back(temp_shape);
+                  processed_rbf_nodes[cell] = true;
+                }
+            }
+        }
+    }
+  composite_shape = std::make_shared<CompositeShape<dim>>(all_spheres,
+                                                          Point<dim>{},
+                                                          Point<3>());
+  this->clear_cache();
+}
+
+template <int dim>
+std::shared_ptr<Shape<dim>>
+FakeRBFShape<dim>::static_copy() const
+{
+  std::shared_ptr<Shape<dim>> copy =
+    std::make_shared<FakeRBFShape<dim>>(this->support_radii,
+                                        this->basis_functions,
+                                        this->weights,
+                                        this->nodes_positions,
+                                        this->position,
+                                        this->orientation);
+  return copy;
+}
+
+template <int dim>
+double
+FakeRBFShape<dim>::displaced_volume(const double fluid_density)
+{
+  return RBFShape<dim>::bounding_box->displaced_volume(fluid_density);
+}
+
 
 template <int dim>
 double
@@ -1930,5 +2114,7 @@ template class CompositeShape<2>;
 template class CompositeShape<3>;
 template class RBFShape<2>;
 template class RBFShape<3>;
+template class FakeRBFShape<2>;
+template class FakeRBFShape<3>;
 template class OpenCascadeShape<2>;
 template class OpenCascadeShape<3>;
