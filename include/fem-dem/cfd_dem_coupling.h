@@ -241,6 +241,7 @@ private:
   std::vector<Tensor<1, 3>> force;
   std::vector<double>       displacement;
   std::vector<double>       MOI;
+  Tensor<1, 3>              g;
   double                    neighborhood_threshold_squared;
   double                    maximum_particle_diameter;
   double                    standard_deviation_multiplier;

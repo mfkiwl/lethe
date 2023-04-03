@@ -793,24 +793,14 @@ CFDDEMSolver<dim>::dem_iterator(unsigned int counter)
   if (this->simulation_control->get_step_number() == 0)
     {
       integrator_object->integrate_half_step_location(
-        this->particle_handler,
-        dem_parameters.lagrangian_physical_properties.g,
-        dem_time_step,
-        torque,
-        force,
-        MOI);
+        this->particle_handler, g, dem_time_step, torque, force, MOI);
     }
   else
     {
       if (!contacts_are_disabled(counter))
         {
           integrator_object->integrate(
-            this->particle_handler,
-            dem_parameters.lagrangian_physical_properties.g,
-            dem_time_step,
-            torque,
-            force,
-            MOI);
+            this->particle_handler, g, dem_time_step, torque, force, MOI);
         }
       else // contacts are disabled
         {
@@ -819,7 +809,7 @@ CFDDEMSolver<dim>::dem_iterator(unsigned int counter)
               &*this->triangulation);
           integrator_object->integrate(
             this->particle_handler,
-            dem_parameters.lagrangian_physical_properties.g,
+            g,
             dem_time_step,
             torque,
             force,
@@ -1093,11 +1083,18 @@ CFDDEMSolver<dim>::dynamic_flow_control()
         *this->face_quadrature,
         *this->mapping);
 
-      // Calculate the beta force
+      // Calculate the beta force for fluid
       this->flow_control.calculate_beta(
         flow_rate,
         this->simulation_control->get_time_step(),
         this->simulation_control->get_step_number());
+
+      // Calculate the beta for particles
+      g = dem_parameters.lagrangian_physical_properties.g +
+          this->flow_control.get_beta_particles(
+            this->simulation_parameters.physical_properties_manager
+              .get_density_scale(),
+            dem_parameters.lagrangian_physical_properties.density_particle[0]);
 
       // Showing results (area and flow rate)
       if (this->simulation_parameters.flow_control.verbosity ==
@@ -1114,9 +1111,15 @@ CFDDEMSolver<dim>::dynamic_flow_control()
           this->pcout << "Inlet area : " << flow_rate.second << std::endl;
           this->pcout << "Flow rate : " << flow_rate.first << std::endl;
           this->pcout
-            << "Beta applied : "
+            << "Beta for fluid : "
             << this->flow_control.get_beta()[this->simulation_parameters
                                                .flow_control.flow_direction]
+            << std::endl;
+          this->pcout
+            << "Beta for particles : "
+            << (g -
+                dem_parameters.lagrangian_physical_properties
+                  .g)[this->simulation_parameters.flow_control.flow_direction]
             << "\n"
             << std::endl;
         }
@@ -1188,6 +1191,7 @@ CFDDEMSolver<dim>::dem_setup_contact_parameters()
   dem_parameters.lagrangian_physical_properties =
     this->cfd_dem_simulation_parameters.dem_parameters
       .lagrangian_physical_properties;
+  g = dem_parameters.lagrangian_physical_properties.g;
   dem_parameters.boundary_conditions =
     this->cfd_dem_simulation_parameters.dem_parameters.boundary_conditions;
   dem_parameters.floating_walls =

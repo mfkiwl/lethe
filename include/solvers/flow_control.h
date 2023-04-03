@@ -62,13 +62,32 @@ public:
                  const unsigned int &             step_number);
 
   /**
-   * @brief get_beta. This function gives the beta coefficient of the
-   * step time
+   * @brief get_beta. This function gives the beta force of the step time
    */
   Tensor<1, dim>
   get_beta()
   {
     return beta;
+  }
+
+  /**
+   * @brief get_beta_particle. This function gives the beta force of the
+   * CFD time step scaled for particles.
+   */
+  Tensor<1, 3>
+  get_beta_particles(const double &fluid_density,
+                     const double &particle_density)
+  {
+    // The beta force for particle must dim a tensor of dim 3 since the body
+    // force g parameters is a tensor of dim 3
+    Tensor<1, 3> beta_particle;
+    beta_particle[0] = beta[0];
+    beta_particle[1] = beta[1];
+
+    if constexpr (dim == 3)
+      beta_particle[2] = beta[2];
+
+    return beta_particle * fluid_density / particle_density;
   }
 
   /**
