@@ -6,7 +6,7 @@ template <int dim>
 FlowControl<dim>::FlowControl(
   const Parameters::DynamicFlowControl &flow_control)
   : beta_0(flow_control.beta_0)
-  , beta_n1(0)
+  , beta_n(0)
   , flow_rate_0(flow_control.flow_rate_0)
   , flow_rate_n(0)
   , flow_direction(flow_control.flow_direction)
@@ -22,7 +22,7 @@ FlowControl<dim>::calculate_beta(const std::pair<double, double> &flow_rate,
 {
   // Getting flow rate and area of the last time step.
   flow_rate_n = flow_rate.first;
-  area        = flow_rate.second;
+  area_n      = flow_rate.second;
 
   // (Only after step time 1)
   // If flow is now reached with no force, the "no_force" variable is set to
@@ -33,7 +33,7 @@ FlowControl<dim>::calculate_beta(const std::pair<double, double> &flow_rate,
   // too small to slow it down, the threshold factor decreases by 2.
   // Otherwise, the flow rate may take a lot time to reached the flow rate value
   // only with the pressure drop.
-  if (abs(beta_n - 0) < 1e-6 && step_number > 1)
+  if (abs(beta_n) < 1e-6 && step_number > 1)
     {
       if (abs(flow_rate_n) < abs(flow_rate_0))
         no_force = false;
@@ -75,21 +75,28 @@ FlowControl<dim>::calculate_beta(const std::pair<double, double> &flow_rate,
       // If the flow rate is between targeted flow rate value and the threshold
       // and if it didn't reached it the value (no_force is enable), it
       // decreases by itself (pressure drop).
-      beta_n1 = 0;
+      beta_n1 = 0.0;
     }
   else if (step_number == 2)
     {
       // The calculated beta at time step 2 is small if the initial beta brings
       // the flow rate close to the fixed value but not enough to get in the
       // threshold.
-      beta_n1 = 0.5 * (flow_rate_n - flow_rate_0) / (area * dt);
+      beta_n1 = 0.5 * (flow_rate_n - flow_rate_0) / (area_n * dt);
     }
   else
     {
       // Standard flow controller.
       // Calculate the new beta to control the flow.
-      beta_n1 =
-        beta_n - (flow_rate_0 - 2 * flow_rate_n + flow_rate_1n) / (area * dt);
+
+      double area_0 = 0.00390552;
+      beta_n1 = beta_n - 0.25 * (flow_rate_0 - 2 * flow_rate_n + flow_rate_1n) /
+                           (area_0 * dt);
+      // double area_0 = 0.00390552;
+      // beta_n1 = beta_n -
+      //         1 / (dt * area_n) *
+      //  ((flow_rate_n - flow_rate_1n) +
+      //   2 * dt * (flow_rate_0 - flow_rate_n));
 
       // If desired flow rate is reached, new beta only maintains the force to
       // keep the flow at the desired value. Is so, if calculated beta is
@@ -98,19 +105,14 @@ FlowControl<dim>::calculate_beta(const std::pair<double, double> &flow_rate,
         beta_n1 = 0;
     }
 
-
   // Setting beta coefficient to the tensor according to the flow direction.
-  if (flow_direction == 0)
-    beta[0] = beta_n1; // beta = f_x
-  else if (flow_direction == 1)
-    beta[1] = beta_n1; // beta = f_y
-  else if (flow_direction == 2)
-    beta[2] = beta_n1; // beta = f_z
+  beta[flow_direction] = beta_n;
 
   // Assigning values of this time step as previous values prior next
   // calculation.
   beta_n       = beta_n1;
   flow_rate_1n = flow_rate_n;
+  area_1n      = area_n;
 }
 
 template <int dim>

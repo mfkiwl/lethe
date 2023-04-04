@@ -1272,7 +1272,8 @@ NavierStokesBase<dim, VectorType, DofsType>::postprocess_fd(bool firstIter)
   if (this->simulation_parameters.post_processing.calculate_pressure_drop)
     {
       TimerOutput::Scope t(this->computing_timer, "pressure_drop_calculation");
-      double             pressure_drop = calculate_pressure_drop(
+      double             pressure_drop, total_pressure_drop;
+      std::tie(pressure_drop, total_pressure_drop) = calculate_pressure_drop(
         this->dof_handler,
         this->mapping,
         this->evaluation_point,
@@ -1283,13 +1284,24 @@ NavierStokesBase<dim, VectorType, DofsType>::postprocess_fd(bool firstIter)
       this->pressure_drop_table.add_value(
         "time", simulation_control->get_current_time());
       this->pressure_drop_table.add_value("pressure-drop", pressure_drop);
+      this->pressure_drop_table.add_value("total-pressure-drop",
+                                          total_pressure_drop);
       if (this->simulation_parameters.post_processing.verbosity ==
           Parameters::Verbosity::verbose)
         {
           this->pcout << "Pressure drop: "
+                      << std::setprecision(
+                           simulation_control->get_log_precision())
                       << this->simulation_parameters.physical_properties_manager
                              .get_density_scale() *
                            pressure_drop
+                      << " Pa" << std::endl;
+          this->pcout << "Total pressure drop: "
+                      << std::setprecision(
+                           simulation_control->get_log_precision())
+                      << this->simulation_parameters.physical_properties_manager
+                             .get_density_scale() *
+                           total_pressure_drop
                       << " Pa" << std::endl;
         }
 

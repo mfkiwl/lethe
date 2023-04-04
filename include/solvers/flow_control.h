@@ -50,7 +50,7 @@ public:
    * value through the previous flow rate. Once the flow rate is reached, the
    * algorithm calculates a new beta to keep a constant flow rate.
    *
-   * @param flow_rate. The last step flow rate
+   * @param flow_rate. The last step flow rate and area
    *
    * @param dt. The current time step
    *
@@ -115,7 +115,8 @@ private:
   double         flow_rate_0;
   double         flow_rate_1n;
   double         flow_rate_n;
-  double         area;
+  double         area_1n = 0.002365;
+  double         area_n;
   unsigned int   flow_direction;
 
   // Variables used to improve convergence
