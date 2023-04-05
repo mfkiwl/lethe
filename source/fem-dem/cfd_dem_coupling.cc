@@ -690,7 +690,6 @@ CFDDEMSolver<dim>::initialize_dem_parameters()
   force.resize(displacement.size());
   torque.resize(displacement.size());
 
-
   this->particle_handler.exchange_ghost_particles(true);
 
   // Updating moment of inertia container
@@ -848,7 +847,8 @@ CFDDEMSolver<dim>::dem_contact_build(unsigned int counter)
   // directly after reading the dem initial checkpoint files
 
   if (contact_detection_step || checkpoint_step || load_balance_step ||
-      (this->simulation_control->is_at_start() && (counter == 0)))
+      (this->simulation_control->is_at_start() && (counter == 0)) ||
+      (has_periodic_boundaries && (counter == 0)))
     {
       this->pcout << "DEM contact search at dem step " << counter << std::endl;
 
@@ -886,7 +886,8 @@ CFDDEMSolver<dim>::dem_contact_build(unsigned int counter)
 
   // Modify particles contact containers by search sequence
   if (load_balance_step || checkpoint_step || contact_detection_step ||
-      (this->simulation_control->is_at_start() && (counter == 0)))
+      (this->simulation_control->is_at_start() && (counter == 0)) ||
+      (has_periodic_boundaries && (counter == 0)))
     {
       // Execute broad search by filling containers of particle-particle
       // contact pair candidates and containers of particle-wall
@@ -1403,6 +1404,17 @@ CFDDEMSolver<dim>::solve()
             dem_iterator(dem_counter);
           }
       }
+
+      // If simulation has periodic boundaries, the particles are sorted into
+      // subdomains and cells otherwise the particles will not match the cells
+      // that they are in when void fraction is calculated with the qcm method
+      if (has_periodic_boundaries &&
+          this->cfd_dem_simulation_parameters.void_fraction->mode ==
+            Parameters::VoidFractionMode::qcm)
+        {
+          this->particle_handler.sort_particles_into_subdomains_and_cells();
+          this->particle_handler.exchange_ghost_particles(true);
+        }
 
       this->pcout << "Finished " << coupling_frequency << " DEM iterations "
                   << std::endl;
