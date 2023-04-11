@@ -10,6 +10,8 @@ FlowControl<dim>::FlowControl(
   , flow_rate_0(flow_control.flow_rate_0)
   , flow_rate_n(0)
   , flow_direction(flow_control.flow_direction)
+  , area_0(flow_control.area)
+  , alpha(flow_control.alpha)
   , no_force(true)
   , threshold_factor(1.01)
 {}
@@ -82,21 +84,21 @@ FlowControl<dim>::calculate_beta(const std::pair<double, double> &flow_rate,
       // The calculated beta at time step 2 is small if the initial beta brings
       // the flow rate close to the fixed value but not enough to get in the
       // threshold.
-      beta_n1 = 0.5 * (flow_rate_n - flow_rate_0) / (area_n * dt);
+      beta_n1 = 0.5 * (flow_rate_n / area_n - flow_rate_0 / area_0) / dt;
     }
   else
     {
       // Standard flow controller.
+      // See "A non-body conformal grid method for simulations
+      // of laminar and turbulent flows with a compressible
+      // large eddy simulation solver" by Wang, 2009
       // Calculate the new beta to control the flow.
 
-      double area_0 = 0.00390552;
-      beta_n1 = beta_n - 0.25 * (flow_rate_0 - 2 * flow_rate_n + flow_rate_1n) /
-                           (area_0 * dt);
-      // double area_0 = 0.00390552;
-      // beta_n1 = beta_n -
-      //         1 / (dt * area_n) *
-      //  ((flow_rate_n - flow_rate_1n) +
-      //   2 * dt * (flow_rate_0 - flow_rate_n));
+      beta_n1 =
+        beta_n - alpha *
+                   ((flow_rate_0 / area_0) - 2 * (flow_rate_n / area_n) +
+                    (flow_rate_1n / area_1n)) /
+                   dt;
 
       // If desired flow rate is reached, new beta only maintains the force to
       // keep the flow at the desired value. Is so, if calculated beta is
@@ -124,6 +126,7 @@ FlowControl<dim>::save(std::string prefix)
   output << "Flow control" << std::endl;
   output << "Previous_beta " << beta_n << std::endl;
   output << "Previous_flow_rate " << flow_rate_1n << std::endl;
+  output << "Previous_area " << area_1n << std::endl;
   output << "No_force " << no_force << std::endl;
   output << "Threshold_factor " << threshold_factor << std::endl;
 }
@@ -140,6 +143,7 @@ FlowControl<dim>::read(std::string prefix)
   std::getline(input, buffer);
   input >> buffer >> beta_n;
   input >> buffer >> flow_rate_1n;
+  input >> buffer >> area_1n;
   input >> buffer >> no_force;
   input >> buffer >> threshold_factor;
 }

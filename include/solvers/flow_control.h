@@ -99,6 +99,19 @@ public:
     return flow_rate_1n;
   }
 
+  /**
+   * @brief get_flow_rate. This function gives the flow rate at the current time
+   * step according to the real area of the boundary. Flow rate from pair in the
+   * post-processing should be the same as this one except for cfd-dem where the
+   * calculated area take the void fraction into account.
+   * real_flow_rate = (flow_rate_n / area_n) * area_0
+   */
+  double
+  get_flow_rate()
+  {
+    return flow_rate_n / area_n * area_0;
+  }
+
   void
   save(std::string prefix);
 
@@ -109,14 +122,16 @@ private:
   // The coefficients are stored in the following fashion :
   // 0 - flow rate intended, n - n, 1n - n-1, n1 - n+1
   Tensor<1, dim> beta;
+  double         alpha; // Relaxation coefficient
   double         beta_0;
   double         beta_n;
   double         beta_n1;
   double         flow_rate_0;
   double         flow_rate_1n;
   double         flow_rate_n;
-  double         area_1n = 0.002365;
+  double         area_1n;
   double         area_n;
+  double         area_0;
   unsigned int   flow_direction;
 
   // Variables used to improve convergence

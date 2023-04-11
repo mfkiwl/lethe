@@ -1124,14 +1124,21 @@ namespace Parameters
     // Volumetric flow rate (L^3/t)
     double flow_rate_0;
 
+    // Area of the flow at boundary id
+    double area;
+
     // Boundary id at flow inlet
     unsigned int boundary_flow_id;
 
     // Flow direction (x=0, y=1 ,z=2)
     unsigned int flow_direction;
 
-    // Initial beta
+    // Initial beta force
     double beta_0;
+
+    // Relaxation coefficient for beta force controller
+    // beta_n+1 = beta_n + alpha * (...)
+    double alpha;
 
     static void
     declare_parameters(ParameterHandler &prm);

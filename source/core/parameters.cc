@@ -2538,10 +2538,18 @@ namespace Parameters
                         "0",
                         Patterns::Integer(),
                         "Flow direction at flow inlet");
+      prm.declare_entry("area",
+                        "1",
+                        Patterns::Double(),
+                        "Area of the inlet flow");
       prm.declare_entry("initial beta",
                         "0",
                         Patterns::Double(),
                         "Beta coefficient value for the first step time");
+      prm.declare_entry("alpha",
+                        "1",
+                        Patterns::Double(),
+                        "Relaxation coefficient for flow controller");
     }
     prm.leave_subsection();
   }
@@ -2560,7 +2568,9 @@ namespace Parameters
       flow_rate_0         = prm.get_double("volumetric flow rate");
       boundary_flow_id    = prm.get_integer("boundary id");
       flow_direction      = prm.get_integer("flow direction");
+      area                = prm.get_double("area");
       beta_0              = prm.get_double("initial beta");
+      alpha               = prm.get_double("alpha");
     }
     prm.leave_subsection();
   }
