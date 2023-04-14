@@ -296,7 +296,7 @@ namespace Parameters
                        std::string       material_prefix,
                        unsigned int      id);
     void
-    parse_parameters(ParameterHandler &   prm,
+    parse_parameters(ParameterHandler    &prm,
                      std::string          material_prefix,
                      const unsigned int   id,
                      const Dimensionality dimensions);
@@ -384,7 +384,7 @@ namespace Parameters
     void
     declare_parameters(ParameterHandler &prm);
     void
-    parse_parameters(ParameterHandler &   prm,
+    parse_parameters(ParameterHandler    &prm,
                      const Dimensionality dimensions = Dimensionality());
   };
 
@@ -398,6 +398,7 @@ namespace Parameters
     enum class NavierStokesStabilization
     {
       pspg_supg,
+      full_pspg_supg,
       gls,
       grad_div
     } stabilization;

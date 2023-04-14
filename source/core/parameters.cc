@@ -270,7 +270,7 @@ namespace Parameters
   }
 
   void
-  PowerLawParameters::parse_parameters(ParameterHandler &   prm,
+  PowerLawParameters::parse_parameters(ParameterHandler    &prm,
                                        const Dimensionality dimensions)
   {
     prm.enter_subsection("power-law");
@@ -310,7 +310,7 @@ namespace Parameters
   }
 
   void
-  CarreauParameters::parse_parameters(ParameterHandler &   prm,
+  CarreauParameters::parse_parameters(ParameterHandler    &prm,
                                       const Dimensionality dimensions)
   {
     prm.enter_subsection("carreau");
@@ -346,7 +346,7 @@ namespace Parameters
   }
 
   void
-  NonNewtonian::parse_parameters(ParameterHandler &   prm,
+  NonNewtonian::parse_parameters(ParameterHandler    &prm,
                                  const Dimensionality dimensions)
   {
     prm.enter_subsection("non newtonian");
@@ -370,9 +370,9 @@ namespace Parameters
       prm.declare_entry(
         "stabilization",
         "pspg_supg",
-        Patterns::Selection("pspg_supg|gls|grad_div"),
+        Patterns::Selection("pspg_supg|full_pspg_supg|gls|grad_div"),
         "Type of stabilization used for the Navier-Stokes equations"
-        "Choices are <pspg_supg|gls|grad_div>.");
+        "Choices are <pspg_supg|full_pspg_supg|gls|grad_div>.");
     }
     prm.leave_subsection();
   }
@@ -386,6 +386,8 @@ namespace Parameters
       std::string op            = prm.get("stabilization");
       if (op == "pspg_supg")
         stabilization = NavierStokesStabilization::pspg_supg;
+      else if (op == "full_pspg_supg")
+        stabilization = NavierStokesStabilization::full_pspg_supg;
       else if (op == "gls")
         stabilization = NavierStokesStabilization::gls;
       else if (op == "grad_div")
@@ -397,7 +399,7 @@ namespace Parameters
   }
 
   void
-  PhaseChange::parse_parameters(ParameterHandler &   prm,
+  PhaseChange::parse_parameters(ParameterHandler    &prm,
                                 const Dimensionality dimensions)
   {
     prm.enter_subsection("phase change");
@@ -546,7 +548,7 @@ namespace Parameters
   }
 
   void
-  PhysicalProperties::parse_parameters(ParameterHandler &   prm,
+  PhysicalProperties::parse_parameters(ParameterHandler    &prm,
                                        const Dimensionality dimensions)
   {
     prm.enter_subsection("physical properties");
@@ -669,7 +671,7 @@ namespace Parameters
   }
 
   void
-  Material::parse_parameters(ParameterHandler &               prm,
+  Material::parse_parameters(ParameterHandler                &prm,
                              std::string                      material_prefix,
                              const unsigned int               id,
                              const Parameters::Dimensionality dimensions)
