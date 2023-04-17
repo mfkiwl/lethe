@@ -1146,13 +1146,13 @@ CFDDEMSolver<dim>::dynamic_flow_control()
         Parameters::SimulationControl::TimeSteppingMethod::steady)
     {
       // Calculate the flow rate according to the void fraction at boundary
-      std::pair<double, double> flow_rate = calculate_flow_rate(
+      std::pair<double, double> flow_rate = calculate_average_velocity(
         this->dof_handler,
         this->void_fraction_dof_handler,
         this->present_solution,
         this->nodal_void_fraction_relevant,
-        this->simulation_parameters.flow_control.boundary_flow_id,
-        *this->face_quadrature,
+        this->simulation_parameters.flow_control.flow_direction,
+        *this->cell_quadrature,
         *this->mapping);
 
       // Calculate the beta force for fluid
@@ -1182,8 +1182,7 @@ CFDDEMSolver<dim>::dynamic_flow_control()
           std::cout << "+------------------------------------------+"
                     << std::endl;
           this->pcout << "Inlet area : " << flow_rate.second << std::endl;
-          this->pcout << "Flow rate : " << this->flow_control.get_flow_rate()
-                      << std::endl;
+          this->pcout << "Flow rate : " << flow_rate.first << std::endl;
           this->pcout
             << "Beta for fluid : "
             << this->flow_control.get_beta()[this->simulation_parameters

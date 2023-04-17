@@ -275,11 +275,13 @@ calculate_flow_rate(const DoFHandler<dim> &    dof_handler,
                     const Mapping<dim> &       mapping);
 
 /**
- * @brief calculate_flow_rate. This function calculates the volumetric flow
- * rate at the selected boundary for the solver GLS VANS. It actually calculates
- * the flow rate through the summation of the value at each cell surface with
- * the normal vector, the velocity value and the area while taking into account
- * the void fraction.
+ * @brief calculate_average_velocity. This function calculates the average velocity of
+ * the domain for the solver GLS VANS.
+ *
+ * Ū = ∫ε(v⋅γ)dΩ/∫εdΩ
+ * Where Ū is the average velocity, ε is the void fraction, v is the velocity
+ * of the cell, γ is the vector of the cell (which is the flow direction) and dΩ
+ * is the volume of the cell.
  *
  * @param dof_handler. The argument used to get velocity at quadrature points
  *
@@ -289,7 +291,7 @@ calculate_flow_rate(const DoFHandler<dim> &    dof_handler,
  *
  * @param present_void_fraction_solution. The vector which contains the void fraction values
  *
- * @param boundary_id. The inlet boundary
+ * @param flow_direction. The flow direction
  *
  * @param face_quadrature_formula The face quadrature formula for the calculation
  *
@@ -297,13 +299,13 @@ calculate_flow_rate(const DoFHandler<dim> &    dof_handler,
  */
 template <int dim, typename VectorType>
 std::pair<double, double>
-calculate_flow_rate(const DoFHandler<dim> &    dof_handler,
-                    const DoFHandler<dim> &    void_fraction_dof_handler,
-                    const VectorType &         present_solution,
-                    const VectorType &         present_void_fraction_solution,
-                    const unsigned int &       boundary_id,
-                    const Quadrature<dim - 1> &face_quadrature_formula,
-                    const Mapping<dim> &       mapping);
+calculate_average_velocity(const DoFHandler<dim> &dof_handler,
+                           const DoFHandler<dim> &void_fraction_dof_handler,
+                           const VectorType &     present_solution,
+                           const VectorType &  present_void_fraction_solution,
+                           const unsigned int &flow_direction,
+                           const Quadrature<dim> &quadrature_formula,
+                           const Mapping<dim> &   mapping);
 
 #  define lethe_postprocessing_cfd_h
 

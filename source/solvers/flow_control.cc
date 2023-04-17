@@ -84,7 +84,7 @@ FlowControl<dim>::calculate_beta(const std::pair<double, double> &flow_rate,
       // The calculated beta at time step 2 is small if the initial beta brings
       // the flow rate close to the fixed value but not enough to get in the
       // threshold.
-      beta_n1 = 0.5 * (flow_rate_n / area_n - flow_rate_0 / area_0) / dt;
+      beta_n1 = 0.5 * (flow_rate_n - flow_rate_0) / dt;
     }
   else
     {
@@ -95,10 +95,7 @@ FlowControl<dim>::calculate_beta(const std::pair<double, double> &flow_rate,
       // Calculate the new beta to control the flow.
 
       beta_n1 =
-        beta_n - alpha *
-                   ((flow_rate_0 / area_0) - 2 * (flow_rate_n / area_n) +
-                    (flow_rate_1n / area_1n)) /
-                   dt;
+        beta_n - alpha * (flow_rate_0 - 2 * flow_rate_n + flow_rate_1n) / dt;
 
       // If desired flow rate is reached, new beta only maintains the force to
       // keep the flow at the desired value. Is so, if calculated beta is
