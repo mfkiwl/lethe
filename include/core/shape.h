@@ -809,6 +809,27 @@ public:
     const unsigned int /*component = 0*/) override;
 
   /**
+   * @brief Return the gradient of the distance function
+   * @param evaluation_point The point at which the function will be evaluated
+   * @param component Not applicable
+   */
+  Tensor<1, dim>
+  gradient(const Point<dim> & evaluation_point,
+           const unsigned int component = 0) const override;
+
+  /**
+   * @brief Return the gradient of the distance function
+   * @param evaluation_point The point at which the function will be evaluated
+   * @param cell The cell that is likely to contain the evaluation point
+   * @param component Not applicable
+   */
+  Tensor<1, dim>
+  gradient_with_cell_guess(
+    const Point<dim> &                                   evaluation_point,
+    const typename DoFHandler<dim>::active_cell_iterator cell,
+    const unsigned int component = 0) override;
+
+  /**
    * @brief Return a pointer to a copy of the Shape
    */
   std::shared_ptr<Shape<dim>>
@@ -824,6 +845,16 @@ public:
   void
   update_precalculations(DoFHandler<dim> &  updated_dof_handler,
                          const unsigned int levels_not_precalculated);
+
+  /**
+   * @brief Computes the assigned boolean operations
+   * @param constituent_shapes_values map containing the computed values for the component shapes
+   * @param constituent_shapes_gradients map containing the computed gradients for the component shapes
+   */
+  inline std::pair<double, Tensor<1, dim>>
+  apply_boolean_operations(
+    std::map<unsigned int, double>         constituent_shapes_values,
+    std::map<unsigned int, Tensor<1, dim>> constituent_shapes_gradients) const;
 
 private:
   // The members of this class are all the constituent and operations that are
@@ -900,7 +931,22 @@ public:
     // distance tool with just the shell.
     if (shells.size() > 0)
       {
-        if (shells.size() > 1)
+        // Check if the number of solids is precisely 1. If it is, we redefine
+        // the shape as only the solid. If it is not the case and there are
+        // multiple shells, we throw an error since we won't be able to
+        // represent the shape correctly.
+        if (solids.size() == 1)
+          {
+            // Extract the solid
+            shape = solids[0];
+            // Extract the shell 0.
+            OpenCASCADE::extract_compound_shapes(
+              shape, compounds, compsolids, solids, shells, wires);
+            // Load the tools
+            distancetool = BRepExtrema_DistShapeShape(shells[0], vertex);
+            point_classifier.Load(shape);
+          }
+        else if (shells.size() > 1)
           {
             throw std::runtime_error(
               "Error!: The shape has more than one shell. The code does not support shapes with multiple shells or solids. If your shape has more than one shell or solid, it is usually possible to recombine them into one. Otherwise, it is possible to split the shape into sub-shells and sub-solids and then define one particle for each of them.");
