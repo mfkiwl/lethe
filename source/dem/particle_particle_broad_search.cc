@@ -210,7 +210,9 @@ ParticleParticleBroadSearch<dim>::find_particle_particle_contact_pairs(
           // Particle contacts between particles in 2 active cells or with
           // particles in inactive cells are irrelevant.
           // In this case, we skip this neighbor cell.
-          if (main_cell_mobility_status == DisableContacts<dim>::active &&
+          if ((main_cell_mobility_status == DisableContacts<dim>::active ||
+               main_cell_mobility_status ==
+                 DisableContacts<dim>::advected_active) &&
               neighbor_cell_mobility_status != DisableContacts<dim>::mobile)
             continue;
 
@@ -267,7 +269,9 @@ ParticleParticleBroadSearch<dim>::find_particle_particle_contact_pairs(
 
           // No storing of particles as candidate if main cell is active
           // but neighbor is not mobile (active or inactive)
-          if (main_cell_mobility_status == DisableContacts<dim>::active &&
+          if ((main_cell_mobility_status == DisableContacts<dim>::active ||
+               main_cell_mobility_status ==
+                 DisableContacts<dim>::advected_active) &&
               neighbor_cell_mobility_status != DisableContacts<dim>::mobile)
             continue;
 
@@ -533,7 +537,10 @@ ParticleParticleBroadSearch<dim>::find_particle_particle_periodic_contact_pairs(
 
           // No storing of particles if main cell is active but neighbor is
           // not mobile (active or inactive)
-          if (main_cell_mobility_status == DisableContacts<dim>::active &&
+
+          if ((main_cell_mobility_status == DisableContacts<dim>::active ||
+               main_cell_mobility_status ==
+                 DisableContacts<dim>::advected_active) &&
               neighbor_cell_mobility_status != DisableContacts<dim>::mobile)
             continue;
 
@@ -599,7 +606,9 @@ ParticleParticleBroadSearch<dim>::find_particle_particle_periodic_contact_pairs(
 
           // No storing of particles if main cell is active but neighbor is
           // not mobile (active or inactive)
-          if (main_cell_mobility_status == DisableContacts<dim>::active &&
+          if ((main_cell_mobility_status == DisableContacts<dim>::active ||
+               main_cell_mobility_status ==
+                 DisableContacts<dim>::advected_active) &&
               neighbor_cell_mobility_status != DisableContacts<dim>::mobile)
             continue;
 
@@ -662,7 +671,9 @@ ParticleParticleBroadSearch<dim>::find_particle_particle_periodic_contact_pairs(
 
           // No storing of particles if main cell is active but neighbor is
           // not mobile (active or mobile)
-          if (main_cell_mobility_status == DisableContacts<dim>::active &&
+          if ((main_cell_mobility_status == DisableContacts<dim>::active ||
+               main_cell_mobility_status ==
+                 DisableContacts<dim>::advected_active) &&
               neighbor_cell_mobility_status != DisableContacts<dim>::mobile)
             continue;
 

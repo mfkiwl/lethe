@@ -116,16 +116,17 @@ public:
    * This status is only used for the node-based mobility status identification,
    * no cells are flagged as empty, only node can by identify as empty. Without
    * this identification of the empty cells, we can't identify the cell that
-   * have a empty neighbor cell, which is critical for simulationd using
+   * have a empty neighbor cell, which is critical for simulation using
    * floating walls or mesh
    */
   enum mobility_status : unsigned int
   {
-    inactive = 0, // used for cells and nodes
-    active   = 1, // used for cells and nodes
-    mobile   = 2, // used for cells and nodes
-    advected = 3, // used for cells and nodes
-    empty    = 4  // used for nodes only
+    inactive        = 0, // used for cells
+    active          = 1, // used for cells and nodes
+    mobile          = 2, // used for cells and nodes
+    advected        = 3, // used for cells and nodes
+    advected_active = 4, // used for cells and nodes
+    empty           = 5  // used for nodes only
   };
 
   /**

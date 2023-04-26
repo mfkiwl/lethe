@@ -232,7 +232,7 @@ VelocityVerletIntegrator<dim>::integrate(
                     }
                 }
               else if (mobility_status == DisableContacts<dim>::advected ||
-                       mobility_status == DisableContacts<dim>::active)
+                       mobility_status == DisableContacts<dim>::advected_active)
                 {
                   // Get the total array view to the particle properties once to
                   // improve efficiency

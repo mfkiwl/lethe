@@ -168,6 +168,19 @@ DisableContacts<dim>::identify_mobility_status(
                            mpi_communicator);
   mobility_at_nodes = 0;
 
+  // For CFD-DEM, if the advection of particles setting is enabled, mobility
+  // status are different: inactive and active are advected and advected_active
+  // since they are not handled in the same way as in DEM only. They have a
+  // special handling in the velocity integration step, so they needs a special
+  // status. The criteria for those status are the same as for DEM.
+  mobility_status inactive_status = mobility_status::inactive;
+  mobility_status active_status   = mobility_status::active;
+  if (advect_particles_enabled)
+    {
+      inactive_status = mobility_status::advected;
+      active_status   = mobility_status::advected_active;
+    }
+
   // Check if the cell is empty (n_particle = 0), if so, nodes and cells are
   // flagged as empty mobility status (3)
   for (auto cell = local_and_ghost_cells_copy.begin();
@@ -315,8 +328,7 @@ DisableContacts<dim>::identify_mobility_status(
                   // node = max(active (1), empty (3))    = empty (3)
                   // node = max(active (1), mobile (2))   = mobile (2)
                   mobility_at_nodes[node_id] =
-                    std::max((int)mobility_status::active,
-                             mobility_at_nodes[node_id]);
+                    std::max((int)active_status, mobility_at_nodes[node_id]);
                 }
               break; // No need to check the other nodes
             }
@@ -348,7 +360,7 @@ DisableContacts<dim>::identify_mobility_status(
       for (auto node_id : local_dofs_indices)
         {
           has_active_nodes =
-            (mobility_at_nodes[node_id] == mobility_status::active) ||
+            (mobility_at_nodes[node_id] == (int)active_status) ||
             has_active_nodes;
 
           has_mobile_nodes =
@@ -363,32 +375,12 @@ DisableContacts<dim>::identify_mobility_status(
       if (has_active_nodes && !has_mobile_nodes)
         {
           const unsigned int cell_id = (*cell)->active_cell_index();
-          cell_mobility_status.insert({cell_id, mobility_status::active});
+          cell_mobility_status.insert({cell_id, active_status});
           cell = local_and_ghost_cells_copy.erase(cell);
         }
       else
         {
           ++cell;
-        }
-    }
-
-  if (advect_particles_enabled)
-    {
-      mobility_at_nodes.update_ghost_values();
-
-      for (auto cell = local_and_ghost_cells_copy.begin();
-           cell != local_and_ghost_cells_copy.end();)
-        {
-          const unsigned int cell_id = (*cell)->active_cell_index();
-          if (average_velocity[cell_id] > velocity_threshold)
-            {
-              cell_mobility_status.insert({cell_id, mobility_status::advected});
-              cell = local_and_ghost_cells_copy.erase(cell);
-            }
-          else
-            {
-              ++cell;
-            }
         }
     }
 
@@ -400,7 +392,7 @@ DisableContacts<dim>::identify_mobility_status(
     {
       // Assign mobile status to cell in map
       const unsigned int cell_id = (*cell)->active_cell_index();
-      cell_mobility_status.insert({cell_id, mobility_status::inactive});
+      cell_mobility_status.insert({cell_id, inactive_status});
     }
 }
 
