@@ -48,7 +48,8 @@ DisableContacts<dim>::calculate_granular_temperature_and_solid_fraction(
   const std::set<typename DoFHandler<dim>::active_cell_iterator>
     &             local_and_ghost_cells_with_particles,
   Vector<double> &granular_temperature_average,
-  Vector<double> &solid_fractions)
+  Vector<double> &solid_fractions,
+  Vector<double> &cell_average_velocity)
 {
   // Iterating through the active cells in cell set with particles
   for (const auto &cell : local_and_ghost_cells_with_particles)
@@ -130,6 +131,8 @@ DisableContacts<dim>::calculate_granular_temperature_and_solid_fraction(
       granular_temperature_average[cell->active_cell_index()] =
         granular_temperature_cell;
       solid_fractions[cell->active_cell_index()] = solid_fraction;
+      cell_average_velocity[cell->active_cell_index()] =
+        velocity_cell_average.norm();
     }
 }
 
@@ -200,15 +203,18 @@ DisableContacts<dim>::identify_mobility_status(
   // Update ghost values of mobility_at_nodes
   mobility_at_nodes.update_ghost_values();
 
-  // Calculate the average granular temperature and solid fraction for each
-  // cells currently in the local_and_ghost_cells_copy set (no empty cells)
+  // Calculate the average granular temperature, solid fraction and average
+  // velocity for each cells currently in the local_and_ghost_cells_copy set (no
+  // empty cells)
   Vector<double> granular_temperature_average(n_active_cells);
   Vector<double> solid_fractions(n_active_cells);
+  Vector<double> average_velocity(n_active_cells);
   calculate_granular_temperature_and_solid_fraction(
     particle_handler,
     local_and_ghost_cells_copy,
     granular_temperature_average,
-    solid_fractions);
+    solid_fractions,
+    average_velocity);
 
   // Check if the cell is mobile by criteria:
   // * granular temperature > threshold or
@@ -330,8 +336,7 @@ DisableContacts<dim>::identify_mobility_status(
   // previous check), this is the layer of active cells
   // If so, cells are stored with active status in the map (1)
   for (auto cell = local_and_ghost_cells_copy.begin();
-       cell != local_and_ghost_cells_copy.end();
-       ++cell)
+       cell != local_and_ghost_cells_copy.end();)
     {
       std::vector<types::global_dof_index> local_dofs_indices(dofs_per_cell);
       (*cell)->get_dof_indices(local_dofs_indices);
@@ -359,6 +364,31 @@ DisableContacts<dim>::identify_mobility_status(
         {
           const unsigned int cell_id = (*cell)->active_cell_index();
           cell_mobility_status.insert({cell_id, mobility_status::active});
+          cell = local_and_ghost_cells_copy.erase(cell);
+        }
+      else
+        {
+          ++cell;
+        }
+    }
+
+  if (advect_particles_enabled)
+    {
+      mobility_at_nodes.update_ghost_values();
+
+      for (auto cell = local_and_ghost_cells_copy.begin();
+           cell != local_and_ghost_cells_copy.end();)
+        {
+          const unsigned int cell_id = (*cell)->active_cell_index();
+          if (average_velocity[cell_id] > velocity_threshold)
+            {
+              cell_mobility_status.insert({cell_id, mobility_status::advected});
+              cell = local_and_ghost_cells_copy.erase(cell);
+            }
+          else
+            {
+              ++cell;
+            }
         }
     }
 

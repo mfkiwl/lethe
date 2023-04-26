@@ -217,8 +217,50 @@ VelocityVerletIntegrator<dim>::integrate(
                   }
 
                   // Reinitialize force and torque of particle
-                  particle_force  = 0;
-                  particle_torque = 0;
+                  particle_force  = 0.0;
+                  particle_torque = 0.0;
+
+                  if constexpr (dim == 3)
+                    particle.set_location(particle_position);
+
+                  if constexpr (dim == 2)
+                    {
+                      Point<2> position_2d;
+                      position_2d[0] = particle_position[0];
+                      position_2d[1] = particle_position[1];
+                      particle.set_location(position_2d);
+                    }
+                }
+              else if (mobility_status == DisableContacts<dim>::advected ||
+                       mobility_status == DisableContacts<dim>::active)
+                {
+                  // Get the total array view to the particle properties once to
+                  // improve efficiency
+                  auto particle_properties = particle.get_properties();
+
+                  particle_position = [&] {
+                    if constexpr (dim == 3)
+                      {
+                        return particle.get_location();
+                      }
+                    else
+                      {
+                        return (point_nd_to_3d(particle.get_location()));
+                      }
+                  }();
+
+                  // Particle location integration
+                  particle_position[0] +=
+                    particle_properties[PropertiesIndex::v_x] * dt;
+                  particle_position[1] +=
+                    particle_properties[PropertiesIndex::v_y] * dt;
+                  particle_position[2] +=
+                    particle_properties[PropertiesIndex::v_z] * dt;
+                  ;
+
+                  // Reset forces
+                  force[particle_id]  = 0.0;
+                  torque[particle_id] = 0.0;
 
                   if constexpr (dim == 3)
                     particle.set_location(particle_position);

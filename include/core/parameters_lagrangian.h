@@ -240,7 +240,7 @@ namespace Parameters
       // Rolling resistance torque method
       RollingResistanceMethod rolling_resistance_method;
 
-      // Itegration method
+      // Integration method
       enum class IntegrationMethod
       {
         velocity_verlet,
@@ -251,6 +251,9 @@ namespace Parameters
       // Disable particle contacts to optimize performance
       bool disable_particle_contacts;
 
+      // Enable advection of particles
+      bool advect_particles;
+
       // Minimal granular temperature value of cells where particle contacts
       // are considered
       double granular_temperature_threshold;
@@ -258,6 +261,10 @@ namespace Parameters
       // Maximal solid fraction value of cells where particle contacts are
       // considered no matter the granular temperature
       double solid_fraction_threshold;
+
+      // Maximal average velocity value of particles in cell to desactivate
+      // contacts, otherwise, particles are advected
+      double velocity_threshold;
 
       static void
       declare_parameters(ParameterHandler &prm);

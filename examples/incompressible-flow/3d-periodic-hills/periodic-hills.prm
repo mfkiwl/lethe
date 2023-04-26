@@ -25,12 +25,37 @@ subsection physical properties
 end
 
 #---------------------------------------------------
+# Void Fraction
+#---------------------------------------------------
+
+subsection void fraction
+  set mode                = pcm
+  set read dem            = true
+  set dem file name       = dem
+end
+
+#---------------------------------------------------
+# CFD-DEM
+#---------------------------------------------------
+
+subsection cfd-dem
+  set grad div                      = false
+  set void fraction time derivative = false
+  set drag force                    = false
+  set buoyancy force                = false
+  set shear force                   = false
+  set pressure force                = false
+  set drag model                    = rong
+  set vans model                    = modelA
+end
+
+#---------------------------------------------------
 # Mesh
 #---------------------------------------------------
 
 subsection mesh
   set type               = periodic_hills
-  set initial refinement = 5
+  set initial refinement = 3
   set grid arguments     = 1;1;4;2;1
 end
 
@@ -60,7 +85,7 @@ end
 subsection flow control
   set enable               = true
   set boundary id          = 0
-  set volumetric flow rate = -9.1575 # bulk velocity = -1
+  set average velocity target = -1
   set flow direction       = 0
   set initial beta         = 7.66
   set verbosity            = verbose

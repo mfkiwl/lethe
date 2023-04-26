@@ -671,7 +671,9 @@ CFDDEMSolver<dim>::initialize_dem_parameters()
       has_disabled_contacts = true;
       disable_contacts_object.set_threshold_values(
         dem_parameters.model_parameters.granular_temperature_threshold,
-        dem_parameters.model_parameters.solid_fraction_threshold);
+        dem_parameters.model_parameters.solid_fraction_threshold,
+        dem_parameters.model_parameters.velocity_threshold,
+        dem_parameters.model_parameters.advect_particles);
     }
 
   // Finding cell neighbors
@@ -897,7 +899,7 @@ CFDDEMSolver<dim>::dem_contact_build(unsigned int counter)
 
       this->particle_handler.sort_particles_into_subdomains_and_cells();
 
-      if (has_disabled_contacts && !this->simulation_control->is_at_start())
+      if (has_disabled_contacts)
         {
           // Update the active and ghost cells set (this should be done after a
           // load balance or a checkpoint, but since the fem-dem code do not

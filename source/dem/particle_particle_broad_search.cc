@@ -167,7 +167,8 @@ ParticleParticleBroadSearch<dim>::find_particle_particle_contact_pairs(
       // If main cell has status "inactive", skip to next main cell
       // No needs to check if the main cell has any particle after this
       // step since empty cells have "inactive" mobility status and are skipped
-      if (main_cell_mobility_status == DisableContacts<dim>::inactive)
+      if (main_cell_mobility_status == DisableContacts<dim>::inactive ||
+          main_cell_mobility_status == DisableContacts<dim>::advected)
         continue;
 
       // Get particles in the main cell
@@ -245,7 +246,8 @@ ParticleParticleBroadSearch<dim>::find_particle_particle_contact_pairs(
       // If main cell has status "inactive", skip to next main cell
       // No needs to check if the main cell has any particle after this
       // step since empty cells have "inactive" mobility status and are skipped
-      if (main_cell_mobility_status == DisableContacts<dim>::inactive)
+      if (main_cell_mobility_status == DisableContacts<dim>::inactive ||
+          main_cell_mobility_status == DisableContacts<dim>::advected)
         continue;
 
       // Particles in the main cell
@@ -509,7 +511,8 @@ ParticleParticleBroadSearch<dim>::find_particle_particle_periodic_contact_pairs(
       // If main cell has status "inactive", skip to next main cell
       // No needs to check if the main cell has any particle after this
       // step since empty cells have "inactive" mobility status and are skipped
-      if (main_cell_mobility_status == DisableContacts<dim>::inactive)
+      if (main_cell_mobility_status == DisableContacts<dim>::inactive ||
+          main_cell_mobility_status == DisableContacts<dim>::advected)
         continue;
 
       // Particles in the main cell
@@ -575,7 +578,8 @@ ParticleParticleBroadSearch<dim>::find_particle_particle_periodic_contact_pairs(
       // If main cell has status "inactive", skip to next main cell
       // No needs to check if the main cell has any particle after this
       // step since empty cells have "inactive" mobility status and are skipped
-      if (main_cell_mobility_status == DisableContacts<dim>::inactive)
+      if (main_cell_mobility_status == DisableContacts<dim>::inactive ||
+          main_cell_mobility_status == DisableContacts<dim>::advected)
         continue;
 
       // Particles in the main cell
@@ -637,7 +641,8 @@ ParticleParticleBroadSearch<dim>::find_particle_particle_periodic_contact_pairs(
       unsigned int main_cell_mobility_status =
         disable_contacts_object.check_cell_mobility(
           *cell_periodic_neighbor_iterator);
-      if (main_cell_mobility_status == DisableContacts<dim>::inactive)
+      if (main_cell_mobility_status == DisableContacts<dim>::inactive ||
+          main_cell_mobility_status == DisableContacts<dim>::advected)
         continue;
 
       // Particles in the main cell

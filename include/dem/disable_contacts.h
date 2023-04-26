@@ -124,7 +124,8 @@ public:
     inactive = 0, // used for cells and nodes
     active   = 1, // used for cells and nodes
     mobile   = 2, // used for cells and nodes
-    empty    = 3  // used for nodes only
+    advected = 3, // used for cells and nodes
+    empty    = 4  // used for nodes only
   };
 
   /**
@@ -201,10 +202,21 @@ public:
    */
   void
   set_threshold_values(const double granular_temperature,
-                       const double solid_fraction)
+                       const double solid_fraction,
+                       const double average_velocity,
+                       const bool   advect_particles)
   {
     granular_temperature_threshold = granular_temperature;
     solid_fraction_threshold       = solid_fraction;
+
+    // If particle advection is enabled, the velocity threshold is set to the
+    // user defined value (or 0.0 as default value) otherwise, it is set to
+    // DBL_MAX so that all the cells are considered as mobile for any velocity.
+    // This value is not currently used, since the particle advection is
+    // checked, but it could prevent future bugs
+    advect_particles_enabled = advect_particles;
+    velocity_threshold =
+      (advect_particles_enabled) ? average_velocity : DBL_MAX;
   }
 
   /**
@@ -261,7 +273,8 @@ private:
     const std::set<typename DoFHandler<dim>::active_cell_iterator>
       &             local_and_ghost_cells_with_particles,
     Vector<double> &cell_granular_temperature,
-    Vector<double> &cell_solid_fraction);
+    Vector<double> &cell_solid_fraction,
+    Vector<double> &cell_average_velocity);
 
   // Map of cell mobility status, the key is the active cell index and the value
   // is the mobility status
@@ -279,9 +292,13 @@ private:
   // to allow update values in parallel
   LinearAlgebra::distributed::Vector<int> mobility_at_nodes;
 
+  // Particle advection
+  bool advect_particles_enabled;
+
   // Threshold values for granular temperature and solid fraction
   double granular_temperature_threshold;
   double solid_fraction_threshold;
+  double velocity_threshold;
 };
 
 #endif // lethe_disable_contacts_h

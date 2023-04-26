@@ -539,6 +539,13 @@ namespace Parameters
             "Choices are <true|false>.");
 
           prm.declare_entry(
+            "enable particle advection",
+            "false",
+            Patterns::Selection("true|false"),
+            "Enable the advection of particles with hydrodynamic forces"
+            "Choices are <true|false>.");
+
+          prm.declare_entry(
             "granular temperature threshold",
             "1e-4",
             Patterns::Double(),
@@ -550,6 +557,12 @@ namespace Parameters
             Patterns::Double(),
             "Maximum solid fraction where particle contacts are considered "
             "no matter the granular temperature");
+
+          prm.declare_entry(
+            "velocity threshold",
+            "0.0",
+            Patterns::Double(),
+            "Maximum average velocity of particles in cell where particle are not advected if advection is enabled");
         }
         prm.leave_subsection();
       }
@@ -567,11 +580,13 @@ namespace Parameters
         {
           disable_particle_contacts =
             prm.get_bool("enable dynamic disabling contacts");
+          advect_particles = prm.get_bool("enable particle advection");
 
           // Thresholds for disabling contacts
           granular_temperature_threshold =
             prm.get_double("granular temperature threshold");
           solid_fraction_threshold = prm.get_double("solid fraction threshold");
+          velocity_threshold       = prm.get_double("velocity threshold");
         }
         prm.leave_subsection();
 
