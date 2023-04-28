@@ -234,8 +234,6 @@ protected:
   virtual void
   postprocess_fd(bool first_iteration);
 
-
-
   /**
    * @brief setup_dofs
    *
@@ -278,8 +276,8 @@ protected:
   /**
    * @brief dynamic_flow_control
    * If set to enable, dynamic_flow_control allows to control the flow by
-   * calculate a beta coefficient at each time step added to the force of the
-   * source term for gls_navier_stokes solver.
+   * executing space-average velocity and beta coefficient force calculation at
+   * each time step.
    */
   virtual void
   dynamic_flow_control();

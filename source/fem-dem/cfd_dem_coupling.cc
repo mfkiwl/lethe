@@ -1185,54 +1185,59 @@ CFDDEMSolver<dim>::dynamic_flow_control()
       this->simulation_parameters.simulation_control.method !=
         Parameters::SimulationControl::TimeSteppingMethod::steady)
     {
-      // Calculate the flow rate according to the void fraction at boundary
-      std::pair<double, double> flow_rate = calculate_average_velocity(
-        this->dof_handler,
-        this->void_fraction_dof_handler,
-        this->present_solution,
-        this->nodal_void_fraction_relevant,
-        this->simulation_parameters.flow_control.flow_direction,
-        *this->cell_quadrature,
-        *this->mapping);
+      // Calculate the average velocity according to the void fraction
+      unsigned int flow_direction =
+        this->simulation_parameters.flow_control.flow_direction;
+      double average_velocity =
+        calculate_average_velocity(this->dof_handler,
+                                   this->void_fraction_dof_handler,
+                                   this->present_solution,
+                                   this->nodal_void_fraction_relevant,
+                                   flow_direction,
+                                   *this->cell_quadrature,
+                                   *this->mapping);
 
       // Calculate the beta force for fluid
       this->flow_control.calculate_beta(
-        flow_rate,
+        average_velocity,
         this->simulation_control->get_time_step(),
         this->simulation_control->get_step_number());
 
-      // Calculate the beta for particles
-      Tensor<1, 3> beta_particles;
-      beta_particles = this->flow_control.get_beta_particles(
-        this->simulation_parameters.physical_properties_manager
-          .get_density_scale(),
-        dem_parameters.lagrangian_physical_properties.density_particle[0]);
-      g = dem_parameters.lagrangian_physical_properties.g + beta_particles;
+      Tensor<1, 3> beta_particle;
+      if (this->simulation_parameters.flow_control.enable_beta_particle)
+        {
+          // Calculate the beta for particles and add it to force tensor g
+          AssertThrow(
+            dem_parameters.lagrangian_physical_properties
+                .particle_type_number == 1,
+            ExcMessage(std::string(
+              "Beta force calculation for particles is not implemented for multiple particle types.")));
 
-      // Showing results (area and flow rate)
+          double fluid_density =
+            this->simulation_parameters.physical_properties_manager
+              .get_density_scale();
+          double particle_density =
+            dem_parameters.lagrangian_physical_properties.density_particle[0];
+          beta_particle =
+            this->flow_control.get_beta_particles(fluid_density,
+                                                  particle_density);
+          g = dem_parameters.lagrangian_physical_properties.g + beta_particle;
+        }
+
+      // Showing results
       if (this->simulation_parameters.flow_control.verbosity ==
             Parameters::Verbosity::verbose &&
           this->simulation_control->get_step_number() > 0 &&
           this->this_mpi_process == 0)
         {
-          std::cout << "+------------------------------------------+"
-                    << std::endl;
-          std::cout << "|  Flow control summary                    |"
-                    << std::endl;
-          std::cout << "+------------------------------------------+"
-                    << std::endl;
-          this->pcout << "Inlet area : " << flow_rate.second << std::endl;
-          this->pcout << "Flow rate : " << flow_rate.first << std::endl;
-          this->pcout
-            << "Beta for fluid : "
-            << this->flow_control.get_beta()[this->simulation_parameters
-                                               .flow_control.flow_direction]
-            << std::endl;
-          this->pcout << "Beta for particles : "
-                      << beta_particles[this->simulation_parameters.flow_control
-                                          .flow_direction]
-                      << "\n"
+          announce_string(this->pcout, "Flow control summary");
+          this->pcout << "Fluid space-average velocity: " << average_velocity
                       << std::endl;
+          this->pcout << "Fluid beta force: "
+                      << this->flow_control.get_beta()[flow_direction]
+                      << std::endl;
+          this->pcout << "Particle beta force: "
+                      << beta_particle[flow_direction] << std::endl;
         }
     }
 }

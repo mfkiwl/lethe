@@ -220,37 +220,31 @@ NavierStokesBase<dim, VectorType, DofsType>::dynamic_flow_control()
       simulation_parameters.simulation_control.method !=
         Parameters::SimulationControl::TimeSteppingMethod::steady)
     {
-      // Calculate the flow rate
-      std::pair<double, double> flow_rate =
-        calculate_flow_rate(this->dof_handler,
-                            this->present_solution,
-                            simulation_parameters.flow_control.boundary_flow_id,
-                            *this->face_quadrature,
-                            *this->mapping);
+      // Calculate the average velocity
+      double average_velocity = calculate_average_velocity(
+        this->dof_handler,
+        this->present_solution,
+        simulation_parameters.flow_control.boundary_flow_id,
+        *this->face_quadrature,
+        *this->mapping);
 
-      this->flow_control.calculate_beta(flow_rate,
+      this->flow_control.calculate_beta(average_velocity,
                                         simulation_control->get_time_step(),
                                         simulation_control->get_step_number());
 
-      // Showing results (area and flow rate)
+      // Showing results
       if (simulation_parameters.flow_control.verbosity ==
             Parameters::Verbosity::verbose &&
           simulation_control->get_step_number() > 0 &&
           this->this_mpi_process == 0)
         {
-          std::cout << "+------------------------------------------+"
-                    << std::endl;
-          std::cout << "|  Flow control summary                    |"
-                    << std::endl;
-          std::cout << "+------------------------------------------+"
-                    << std::endl;
-          this->pcout << "Inlet area : " << flow_rate.second << std::endl;
-          this->pcout << "Flow rate : " << flow_rate.first << std::endl;
+          announce_string(this->pcout, "Flow control summary");
+          this->pcout << "Space-average velocity: " << average_velocity
+                      << std::endl;
           this->pcout
-            << "Calculated beta : "
+            << "Beta force:  "
             << flow_control
                  .get_beta()[simulation_parameters.flow_control.flow_direction]
-            << "\n"
             << std::endl;
         }
     }
@@ -1318,7 +1312,60 @@ NavierStokesBase<dim, VectorType, DofsType>::postprocess_fd(bool firstIter)
           std::ofstream output(filename.c_str());
           pressure_drop_table.set_precision("time", 12);
           pressure_drop_table.set_precision("pressure-drop", 12);
+          pressure_drop_table.set_precision("total-pressure-drop", 12);
           this->pressure_drop_table.write_text(output);
+        }
+    }
+
+  // Calculate flow rate at every boundary
+  if (this->simulation_parameters.post_processing.calculate_flow_rate)
+    {
+      TimerOutput::Scope t(this->computing_timer, "flow_rate_calculation");
+      for (unsigned int boundary_id = 0;
+           boundary_id < simulation_parameters.boundary_conditions.size;
+           ++boundary_id)
+        {
+          std::pair<double, double> boundary_flow_rate =
+            calculate_flow_rate(this->dof_handler,
+                                this->present_solution,
+                                boundary_id,
+                                *this->face_quadrature,
+                                *this->mapping);
+          this->flow_rate_table.add_value(
+            "time", simulation_control->get_current_time());
+          this->flow_rate_table.add_value("flow-rate-" +
+                                            std::to_string(boundary_id),
+                                          boundary_flow_rate.first);
+          if (this->simulation_parameters.post_processing.verbosity ==
+              Parameters::Verbosity::verbose)
+            {
+              this->pcout << "Flow rate at boundary " +
+                               std::to_string(boundary_id) + ": "
+                          << std::setprecision(
+                               simulation_control->get_log_precision())
+                          << boundary_flow_rate.first << " m^3/s" << std::endl;
+            }
+        }
+
+      // Output flow rate to a text file from processor 0
+      if ((simulation_control->get_step_number() %
+             this->simulation_parameters.post_processing.output_frequency ==
+           0) &&
+          this->this_mpi_process == 0)
+        {
+          std::string filename =
+            simulation_parameters.simulation_control.output_folder +
+            simulation_parameters.post_processing.flow_rate_output_name +
+            ".dat";
+          std::ofstream output(filename.c_str());
+          flow_rate_table.set_precision("time", 12);
+          for (unsigned int boundary_id = 0;
+               boundary_id < simulation_parameters.boundary_conditions.size;
+               ++boundary_id)
+            flow_rate_table.set_precision("flow-rate-" +
+                                            std::to_string(boundary_id),
+                                          12);
+          this->flow_rate_table.write_text(output);
         }
     }
 

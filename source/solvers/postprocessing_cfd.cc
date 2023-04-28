@@ -1114,7 +1114,60 @@ calculate_flow_rate(const DoFHandler<3> &                     dof_handler,
                     const Mapping<3> &   mapping);
 
 template <int dim, typename VectorType>
-std::pair<double, double>
+double
+calculate_average_velocity(const DoFHandler<dim> &    dof_handler,
+                           const VectorType &         present_solution,
+                           const unsigned int &       boundary_id,
+                           const Quadrature<dim - 1> &face_quadrature_formula,
+                           const Mapping<dim> &       mapping)
+{
+  std::pair<double, double> flow_rate_and_area =
+    calculate_flow_rate(dof_handler,
+                        present_solution,
+                        boundary_id,
+                        face_quadrature_formula,
+                        mapping);
+
+  // In dynamic flow control, the flow rate is negative if the velocity is
+  // positive when calculated at inlet boundary because of the normal vector
+  // direction. Hence, we need to invert the sign to get the average velocity.
+  return -flow_rate_and_area.first / flow_rate_and_area.second;
+}
+
+template double
+calculate_average_velocity(
+  const DoFHandler<2> &                dof_handler,
+  const TrilinosWrappers::MPI::Vector &present_solution,
+  const unsigned int &                 boundary_id,
+  const Quadrature<1> &                face_quadrature_formula,
+  const Mapping<2> &                   mapping);
+
+template double
+calculate_average_velocity(
+  const DoFHandler<3> &                dof_handler,
+  const TrilinosWrappers::MPI::Vector &present_solution,
+  const unsigned int &                 boundary_id,
+  const Quadrature<2> &                face_quadrature_formula,
+  const Mapping<3> &                   mapping);
+
+template double
+calculate_average_velocity(
+  const DoFHandler<2> &                     dof_handler,
+  const TrilinosWrappers::MPI::BlockVector &present_solution,
+  const unsigned int &                      boundary_id,
+  const Quadrature<1> &                     face_quadrature_formula,
+  const Mapping<2> &                        mapping);
+
+template double
+calculate_average_velocity(
+  const DoFHandler<3> &                     dof_handler,
+  const TrilinosWrappers::MPI::BlockVector &present_solution,
+  const unsigned int &                      boundary_id,
+  const Quadrature<2> &                     face_quadrature_formula,
+  const Mapping<3> &                        mapping);
+
+template <int dim, typename VectorType>
+double
 calculate_average_velocity(const DoFHandler<dim> &dof_handler,
                            const DoFHandler<dim> &void_fraction_dof_handler,
                            const VectorType &     present_solution,
@@ -1135,7 +1188,7 @@ calculate_average_velocity(const DoFHandler<dim> &dof_handler,
                           fe,
                           quadrature_formula,
                           update_values | update_quadrature_points |
-                            update_JxW_values);
+                            update_JxW_values | update_normal_vectors);
 
   // Set up for void fraction fe values
   const FESystem<dim, dim> fe_void_fraction =
@@ -1147,13 +1200,12 @@ calculate_average_velocity(const DoFHandler<dim> &dof_handler,
                              fe_void_fraction,
                              quadrature_formula,
                              update_values | update_quadrature_points |
-                               update_JxW_values);
+                               update_JxW_values | update_normal_vectors);
 
   // Initialize variables for summation
   double average_velocity = 0;
   double volume           = 0;
 
-  // Calculating area and volumetric flow rate at the inlet flow
   for (const auto &cell : dof_handler.active_cell_iterators())
     {
       if (cell->is_locally_owned())
@@ -1189,12 +1241,13 @@ calculate_average_velocity(const DoFHandler<dim> &dof_handler,
   average_velocity = Utilities::MPI::sum(average_velocity, mpi_communicator);
   volume           = Utilities::MPI::sum(volume, mpi_communicator);
 
+  // Calculate the average velocity
   average_velocity /= volume;
 
-  return std::make_pair(-average_velocity, volume);
+  return average_velocity;
 }
 
-template std::pair<double, double>
+template double
 calculate_average_velocity(
   const DoFHandler<2> &                dof_handler,
   const DoFHandler<2> &                void_fraction_dof_handler,
@@ -1204,7 +1257,7 @@ calculate_average_velocity(
   const Quadrature<2> &                quadrature_formula,
   const Mapping<2> &                   mapping);
 
-template std::pair<double, double>
+template double
 calculate_average_velocity(
   const DoFHandler<3> &                dof_handler,
   const DoFHandler<3> &                void_fraction_dof_handler,

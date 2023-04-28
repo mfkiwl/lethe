@@ -272,7 +272,6 @@ protected:
   // Solution of the void fraction at previous time steps
   std::vector<TrilinosWrappers::MPI::Vector> previous_void_fraction;
 
-
   TrilinosWrappers::MPI::Vector nodal_void_fraction_relevant;
   TrilinosWrappers::MPI::Vector nodal_void_fraction_owned;
 

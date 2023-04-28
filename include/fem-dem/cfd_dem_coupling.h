@@ -222,7 +222,7 @@ private:
   /**
    * @brief dynamic_flow_control
    * Dynamic flow control calculation that take into account the void fraction
-   * for the flow rate calculation
+   * for the average velocity calculation
    */
   void
   dynamic_flow_control() override;
@@ -241,11 +241,11 @@ private:
   bool                      contact_detection_step;
   bool                      checkpoint_step;
   bool                      load_balance_step;
+  Tensor<1, 3>              g;
   std::vector<Tensor<1, 3>> torque;
   std::vector<Tensor<1, 3>> force;
   std::vector<double>       displacement;
   std::vector<double>       MOI;
-  Tensor<1, 3>              g;
   double                    neighborhood_threshold_squared;
   double                    maximum_particle_diameter;
   double                    standard_deviation_multiplier;
