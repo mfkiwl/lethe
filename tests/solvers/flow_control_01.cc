@@ -60,10 +60,8 @@ test()
       flow_control.calculate_beta(average_velocity, dt, step_number);
       beta = flow_control.get_beta();
 
-      // Calculating a fake new average velocity (fake pressure drop and force)
-      // Note : velocity is negative because of the outward normal vector.
-      // Average velocity is decreased by 1 % (fake pressure drop)
-      // Force applied is 25% of beta (fake force)
+      // Calculating a fake new average velocity with 1% of pressure drop and an
+      // arbitrary velocity value of 25% of beta
       average_velocity *= 0.99;
       average_velocity += 0.25 * beta[flow_control_parameters.flow_direction];
       deallog << "" << std::endl;
