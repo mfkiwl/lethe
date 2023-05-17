@@ -25,6 +25,7 @@
 
 #include <deal.II/dofs/dof_handler.h>
 
+#include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/lac/la_parallel_vector.templates.h>
 
@@ -179,6 +180,49 @@ public:
     const Particles::ParticleHandler<dim> &particle_handler,
     const unsigned int                     n_active_cells,
     MPI_Comm                               mpi_communicator);
+
+
+  inline void
+  map_periodic_nodes(const AffineConstraints<double> &constraints)
+  {
+    IndexSet local_lines = constraints.get_local_lines();
+    for (auto i : local_lines)
+      {
+        for (auto j : local_lines)
+          {
+            // Map the values of the periodic nodes (with repetition)
+            if (constraints.are_identity_constrained(i, j))
+              {
+                periodic_node_ids.insert(std::make_pair(i, j));
+              }
+          }
+      }
+  }
+
+  inline void
+  assign_to_periodic_node(const unsigned int node_id,
+                          const unsigned int mobility_status,
+                          const bool         check_max_mobility_status = false)
+  {
+    // Check if node has a periodic node
+    auto it = periodic_node_ids.find(node_id);
+    if (it != periodic_node_ids.end())
+      {
+        if (!check_max_mobility_status)
+          {
+            // Assign the mobility status to the periodic node
+            mobility_at_nodes(it->second) = mobility_status;
+          }
+        else
+          {
+            // Check if the mobility status is higher than the one already
+            // assigned to the periodic node (prevents from overwriting)
+            mobility_at_nodes(it->second) =
+              std::max((int)mobility_status, mobility_at_nodes(it->second));
+          }
+      }
+  }
+
 
   /**
    * @brief Find the mobility status of a cell

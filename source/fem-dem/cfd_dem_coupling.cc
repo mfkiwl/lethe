@@ -343,6 +343,13 @@ CFDDEMSolver<dim>::read_checkpoint()
 
   this->setup_dofs();
 
+  // Remap periodic nodes after setup of dofs
+  if (has_periodic_boundaries && has_disabled_contacts)
+    {
+      disable_contacts_object.map_periodic_nodes(
+        this->void_fraction_constraints);
+    }
+
   // Velocity Vectors
   std::vector<TrilinosWrappers::MPI::Vector *> x_system(
     1 + this->previous_solutions.size());
@@ -569,6 +576,13 @@ CFDDEMSolver<dim>::load_balance()
 
   this->pcout << "Setup DOFs" << std::endl;
   this->setup_dofs();
+
+  // Remap periodic nodes after setup of dofs
+  if (has_periodic_boundaries && has_disabled_contacts)
+    {
+      disable_contacts_object.map_periodic_nodes(
+        this->void_fraction_constraints);
+    }
 
   // Velocity Vectors
   std::vector<TrilinosWrappers::MPI::Vector *> x_system(
@@ -1239,23 +1253,6 @@ CFDDEMSolver<dim>::dynamic_flow_control()
           this->pcout << "Particle beta force: "
                       << beta_particle[flow_direction] << std::endl;
         }
-     /* Point<dim> point;
-      point = {0,0,0};
-      // Showing results
-      if (this->simulation_parameters.flow_control.verbosity ==
-            Parameters::Verbosity::verbose &&
-          this->simulation_control->get_step_number() > 0 &&
-          this->this_mpi_process == 0)
-        {
-          announce_string(this->pcout, "Flow control summary");
-          this->pcout << "Fluid space-average velocity: " << average_velocity
-                      << std::endl;
-          this->pcout << "Fluid beta force: "
-                      << this->forcing_function->value(point, flow_direction)
-                      << std::endl;
-          this->pcout << "Particle beta force: " << g[flow_direction]
-                      << std::endl;
-        }*/
     }
 }
 
@@ -1436,6 +1433,13 @@ CFDDEMSolver<dim>::solve()
     read_dem();
 
   this->setup_dofs();
+
+  // Remap periodic nodes after setup of dofs
+  if (has_periodic_boundaries && has_disabled_contacts)
+    {
+      disable_contacts_object.map_periodic_nodes(
+        this->void_fraction_constraints);
+    }
 
   this->set_initial_condition(
     this->cfd_dem_simulation_parameters.cfd_parameters.initial_condition->type,

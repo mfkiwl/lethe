@@ -101,7 +101,6 @@ GLSVANSSolver<dim>::setup_dofs()
     void_fraction_dof_handler.locally_owned_dofs();
 
   DoFTools::extract_locally_relevant_dofs(void_fraction_dof_handler,
-
                                           locally_relevant_dofs_voidfraction);
 
   void_fraction_constraints.clear();
@@ -140,7 +139,6 @@ GLSVANSSolver<dim>::setup_dofs()
   nodal_void_fraction_relevant.reinit(locally_owned_dofs_voidfraction,
                                       locally_relevant_dofs_voidfraction,
                                       this->mpi_communicator);
-
 
   for (unsigned int i = 0; i < previous_void_fraction.size(); ++i)
     {

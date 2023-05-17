@@ -256,7 +256,6 @@ VelocityVerletIntegrator<dim>::integrate(
                     particle_properties[PropertiesIndex::v_y] * dt;
                   particle_position[2] +=
                     particle_properties[PropertiesIndex::v_z] * dt;
-                  ;
 
                   // Reset forces
                   force[particle_id]  = 0.0;
