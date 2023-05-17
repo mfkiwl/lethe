@@ -134,6 +134,108 @@ DisableContacts<dim>::calculate_granular_temperature_and_solid_fraction(
       cell_average_velocity[cell->active_cell_index()] =
         velocity_cell_average.norm();
     }
+
+  // Iterating through the active cells in cell set with particles
+  /*for (const auto &cell : local_and_ghost_cells_with_particles)
+    {
+      // Particles in the cell
+      auto particles_in_cell = particle_handler.particles_in_cell(cell);
+      const unsigned int n_particles_in_cell =
+        particle_handler.n_particles_in_cell(cell);
+
+      // Initialize variables for solid fraction computation
+      double       solid_fraction = 0.0;
+      double       solid_volume   = 0.0;
+      const double cell_volume    = cell->measure();
+
+      // Initialize variables for granular temperature computation
+      double         granular_temperature_cell = 0.0;
+      Tensor<1, dim> velocity_cell_average;
+      Tensor<1, dim> acceleration_cell_average;
+      Tensor<1, dim> cell_velocity_acceleration_fluctuation_average;
+
+      // First loop over particles in cell to compute the sum of
+      // particle velocity and the solid volume of the current cell
+      for (auto particles_in_cell_iterator = particles_in_cell.begin();
+           particles_in_cell_iterator != particles_in_cell.end();
+           ++particles_in_cell_iterator)
+        {
+          // Get particle properties
+          auto &particle_properties =
+            particles_in_cell_iterator->get_properties();
+          types::particle_index particle_id =
+            particles_in_cell_iterator->get_local_index();
+          const double dp   = particle_properties[DEM::PropertiesIndex::dp];
+          const double mass = particle_properties[DEM::PropertiesIndex::mass];
+          Tensor<1, 3> force(
+            {particle_properties[DEM::PropertiesIndex::fem_force_x],
+             particle_properties[DEM::PropertiesIndex::fem_force_y],
+             particle_properties[DEM::PropertiesIndex::fem_force_z]});
+          const Tensor<1, 3> acceleration = force / mass + g;
+
+          for (int d = 0; d < dim; ++d)
+            {
+              // Get the particle velocity component (v_x, v_y & v_z if dim = 3)
+              int v_axis = DEM::PropertiesIndex::v_x + d;
+
+              // Add the velocity component value
+              velocity_cell_average[d] += particle_properties[v_axis];
+              acceleration_cell_average[d] += acceleration[d];
+            }
+
+          solid_volume += M_PI * pow(dp, dim) / (2.0 * dim);
+        }
+
+      // Calculate average velocity in the cell (sum/n_particles)
+      velocity_cell_average /= n_particles_in_cell;
+      acceleration_cell_average /= n_particles_in_cell;
+
+      // Calculate solid fraction of cell
+      solid_fraction = solid_volume / cell_volume;
+
+      // Second loop over particle to compute the sum of the cell velocity
+      // fluctuations
+      for (auto particles_in_cell_iterator = particles_in_cell.begin();
+           particles_in_cell_iterator != particles_in_cell.end();
+           ++particles_in_cell_iterator)
+        {
+          auto &particle_properties =
+            particles_in_cell_iterator->get_properties();
+          types::particle_index particle_id =
+            particles_in_cell_iterator->get_local_index();
+
+          const double mass = particle_properties[DEM::PropertiesIndex::mass];
+          Tensor<1, 3> force(
+            {particle_properties[DEM::PropertiesIndex::fem_force_x],
+             particle_properties[DEM::PropertiesIndex::fem_force_y],
+             particle_properties[DEM::PropertiesIndex::fem_force_z]});
+          const Tensor<1, 3> acceleration = force / mass;
+
+          for (int d = 0; d < dim; ++d)
+            {
+              // Get the particle velocity component (v_x, v_y & v_z if dim = 3)
+              int v_axis = DEM::PropertiesIndex::v_x + d;
+              cell_velocity_acceleration_fluctuation_average[d] += std::fabs(
+                (particle_properties[v_axis] - velocity_cell_average[d]) *
+                (acceleration[d] - acceleration_cell_average[d]));
+            }
+        }
+
+      // Calculate average granular temperature in the cell
+      for (int d = 0; d < dim; ++d)
+        {
+          cell_velocity_acceleration_fluctuation_average[d] /=
+            n_particles_in_cell;
+          granular_temperature_cell +=
+            2 * cell_velocity_acceleration_fluctuation_average[d] / dim;
+        }
+
+      // Store the average granular temperature and solid fraction with
+      // active cell index
+      granular_temperature_average[cell->active_cell_index()] =
+        granular_temperature_cell;
+      solid_fractions[cell->active_cell_index()] = solid_fraction;
+    }*/
 }
 
 template <int dim>

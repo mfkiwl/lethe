@@ -270,6 +270,33 @@ private:
   bool                 has_disabled_contacts;
   unsigned int         contact_build_number;
 
+  void
+  output_field_hook(DataOut<dim> &data_out) override
+  {
+    TrilinosWrappers::MPI::Vector mobility_output;
+    mobility_output.reinit(this->locally_owned_dofs_voidfraction,
+                           this->locally_relevant_dofs_voidfraction,
+                           this->mpi_communicator);
+
+    LinearAlgebra::distributed::Vector<int> tmp =
+      disable_contacts_object.get_mobility_output();
+
+
+
+    data_out.add_data_vector(this->void_fraction_dof_handler,
+                             this->nodal_void_fraction_relevant,
+                             "void_fraction");
+
+    if (!tmp.all_zero())
+      {
+        for (auto i : this->locally_relevant_dofs_voidfraction)
+          mobility_output[i] = tmp[i];
+        data_out.add_data_vector(this->void_fraction_dof_handler,
+                                 mobility_output,
+                                 "node_status");
+      }
+  }
+
   // Storage of statistics about time and contact lists
   statistics contact_list;
   statistics simulation_time;

@@ -279,6 +279,13 @@ public:
       }
   };
 
+
+  LinearAlgebra::distributed::Vector<int>
+  get_mobility_output()
+  {
+    return mobility_at_nodes;
+  }
+
   typename DEM::dem_data_structures<dim>::cell_index_int_map &
   get_mobility_status()
   {
@@ -288,31 +295,43 @@ public:
   void
   calculate_cell_acceleration(Particles::ParticleHandler<dim> &particle_handler,
                               const Tensor<1, 3> &             g,
-                              std::vector<Tensor<1, 3>> &      force)
+                              std::vector<Tensor<1, 3>> &      force,
+                              bool only_mobile = false)
   {
     for (auto &cell : this->local_and_ghost_cells)
       {
+        Tensor<1, 3> empty_cell_acceleration({0.0, 0.0, 0.0});
+        if (only_mobile)
+          if (cell_mobility_status[cell->active_cell_index()] !=
+              mobility_status::mobile)
+            continue;
+
         // We loop over the particles, even if cell is not mobile, to reset
         // the force and torques value of the particle with the particle id
         auto particles_in_cell = particle_handler.particles_in_cell(cell);
         const unsigned int n_particles_in_cell =
           particle_handler.n_particles_in_cell(cell);
 
-        Tensor<1, 3> acceleration;
-
-        for (auto &particle : particles_in_cell)
+        if (n_particles_in_cell > 0)
           {
-            // Get particle properties
-            auto &particle_properties         = particle.get_properties();
-            types::particle_index particle_id = particle.get_local_index();
-            acceleration += force[particle_id] /
-                              particle_properties[DEM::PropertiesIndex::mass] +
-                            g;
+            Tensor<1, 3> acceleration;
+
+            for (auto &particle : particles_in_cell)
+              {
+                // Get particle properties
+                auto &particle_properties         = particle.get_properties();
+                types::particle_index particle_id = particle.get_local_index();
+                acceleration +=
+                  force[particle_id] /
+                    particle_properties[DEM::PropertiesIndex::mass] +
+                  g;
+              }
+
+            acceleration /= n_particles_in_cell;
+
+            // Update acceleration for the mobile cell only
+            cell_acceleration_map[cell] = acceleration;
           }
-
-        acceleration /= n_particles_in_cell;
-
-        cell_acceleration_map.insert({cell, acceleration});
       }
   }
 
@@ -323,6 +342,23 @@ public:
         acceleration[cell->active_cell_index()] = cell_acceleration_map[cell];
       }
   }
+
+  void
+  get_acceleration_vector(Vector<float> &acceleration_x,
+                          Vector<float> &acceleration_y,
+                          Vector<float> &acceleration_z)
+  {
+    for (auto &cell : this->local_and_ghost_cells)
+      {
+        acceleration_x[cell->active_cell_index()] =
+          cell_acceleration_map[cell][0];
+        acceleration_y[cell->active_cell_index()] =
+          cell_acceleration_map[cell][1];
+        acceleration_z[cell->active_cell_index()] =
+          cell_acceleration_map[cell][2];
+
+      }
+  };
 
 
 private:
@@ -373,6 +409,7 @@ private:
   // Vector of mobility status at nodes, used to check the value at node to
   // determine the mobility status of the cell, this type of vector is used
   // to allow update values in parallel
+  TrilinosWrappers::MPI::Vector           mobility_output;
   LinearAlgebra::distributed::Vector<int> mobility_at_nodes;
 
   std::unordered_map<unsigned int, unsigned int> periodic_node_ids;

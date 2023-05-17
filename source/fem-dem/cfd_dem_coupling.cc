@@ -847,10 +847,6 @@ CFDDEMSolver<dim>::dem_iterator(unsigned int counter)
   // Integration correction step (after force calculation)
   // In the first step, we have to obtain location of particles at half-step
   // time
-  disable_contacts_object.calculate_cell_acceleration(this->particle_handler,
-                                                      g,
-                                                      force);
-
   unsigned int step_number = this->simulation_control->get_step_number();
   if (step_number + counter == 0)
     {
@@ -861,6 +857,8 @@ CFDDEMSolver<dim>::dem_iterator(unsigned int counter)
     {
       if (!contacts_are_disabled(counter, step_number))
         {
+          disable_contacts_object.calculate_cell_acceleration(
+            this->particle_handler, g, force);
           integrator_object->integrate(
             this->particle_handler, g, dem_time_step, torque, force, MOI);
         }
