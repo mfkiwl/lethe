@@ -142,10 +142,12 @@ VelocityVerletIntegrator<dim>::integrate(
   const std::vector<double> &                      MOI,
   const parallel::distributed::Triangulation<dim> &triangulation,
   typename DEM::dem_data_structures<dim>::cell_index_int_map
-    &cell_mobility_status_map)
+    &                        cell_mobility_status_map,
+  std::vector<Tensor<1, 3>> &cell_acceleration)
 {
   Point<3>           particle_position;
   const Tensor<1, 3> dt_g = g * dt;
+  Tensor<1, 3>       acceleration;
 
   for (auto &cell : triangulation.active_cell_iterators())
     {
@@ -154,6 +156,8 @@ VelocityVerletIntegrator<dim>::integrate(
           // Get the mobility status of the cell
           unsigned int mobility_status =
             cell_mobility_status_map.at(cell->active_cell_index());
+
+          acceleration = cell_acceleration[cell->active_cell_index()];
 
           // We loop over the particles, even if cell is not mobile, to reset
           // the force and torques value of the particle with the particle id
@@ -248,6 +252,14 @@ VelocityVerletIntegrator<dim>::integrate(
                         return (point_nd_to_3d(particle.get_location()));
                       }
                   }();
+
+                  // Particle velocity integration
+                  particle_properties[PropertiesIndex::v_x] +=
+                    acceleration[0] * dt;
+                  particle_properties[PropertiesIndex::v_y] +=
+                    acceleration[1] * dt;
+                  particle_properties[PropertiesIndex::v_z] +=
+                    acceleration[2] * dt;
 
                   // Particle location integration
                   particle_position[0] +=

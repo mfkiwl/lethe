@@ -232,9 +232,9 @@ private:
    *
    */
   inline bool
-  contacts_are_disabled(unsigned int counter) const
+  contacts_are_disabled(unsigned int counter, unsigned int step_number) const
   {
-    return has_disabled_contacts && counter > 1;
+    return has_disabled_contacts && counter > 1 && step_number > 0;
   }
 
   unsigned int              coupling_frequency;

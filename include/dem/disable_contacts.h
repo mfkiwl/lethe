@@ -260,8 +260,6 @@ public:
     // This value is not currently used, since the particle advection is
     // checked, but it could prevent future bugs
     advect_particles_enabled = advect_particles;
-    velocity_threshold =
-      (advect_particles_enabled) ? average_velocity : DBL_MAX;
   }
 
   /**
@@ -286,6 +284,46 @@ public:
   {
     return cell_mobility_status;
   }
+
+  void
+  calculate_cell_acceleration(Particles::ParticleHandler<dim> &particle_handler,
+                              const Tensor<1, 3> &             g,
+                              std::vector<Tensor<1, 3>> &      force)
+  {
+    for (auto &cell : this->local_and_ghost_cells)
+      {
+        // We loop over the particles, even if cell is not mobile, to reset
+        // the force and torques value of the particle with the particle id
+        auto particles_in_cell = particle_handler.particles_in_cell(cell);
+        const unsigned int n_particles_in_cell =
+          particle_handler.n_particles_in_cell(cell);
+
+        Tensor<1, 3> acceleration;
+
+        for (auto &particle : particles_in_cell)
+          {
+            // Get particle properties
+            auto &particle_properties         = particle.get_properties();
+            types::particle_index particle_id = particle.get_local_index();
+            acceleration += force[particle_id] /
+                              particle_properties[DEM::PropertiesIndex::mass] +
+                            g;
+          }
+
+        acceleration /= n_particles_in_cell;
+
+        cell_acceleration_map.insert({cell, acceleration});
+      }
+  }
+
+  void get_cell_acceleration(std::vector<Tensor<1, 3>> &acceleration)
+  {
+    for (auto &cell : this->local_and_ghost_cells)
+      {
+        acceleration[cell->active_cell_index()] = cell_acceleration_map[cell];
+      }
+  }
+
 
 private:
   /**
@@ -337,13 +375,19 @@ private:
   // to allow update values in parallel
   LinearAlgebra::distributed::Vector<int> mobility_at_nodes;
 
+  std::unordered_map<unsigned int, unsigned int> periodic_node_ids;
+
   // Particle advection
   bool advect_particles_enabled;
 
   // Threshold values for granular temperature and solid fraction
   double granular_temperature_threshold;
   double solid_fraction_threshold;
-  double velocity_threshold;
+
+  std::vector<Tensor<1, 3>> cell_acceleration;
+
+  std::map<typename DoFHandler<dim>::active_cell_iterator, Tensor<1, 3>>
+    cell_acceleration_map;
 };
 
 #endif // lethe_disable_contacts_h

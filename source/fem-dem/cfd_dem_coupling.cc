@@ -847,14 +847,19 @@ CFDDEMSolver<dim>::dem_iterator(unsigned int counter)
   // Integration correction step (after force calculation)
   // In the first step, we have to obtain location of particles at half-step
   // time
-  if (this->simulation_control->get_step_number() == 0)
+  disable_contacts_object.calculate_cell_acceleration(this->particle_handler,
+                                                      g,
+                                                      force);
+
+  unsigned int step_number = this->simulation_control->get_step_number();
+  if (step_number + counter == 0)
     {
       integrator_object->integrate_half_step_location(
         this->particle_handler, g, dem_time_step, torque, force, MOI);
     }
   else
     {
-      if (!contacts_are_disabled(counter))
+      if (!contacts_are_disabled(counter, step_number))
         {
           integrator_object->integrate(
             this->particle_handler, g, dem_time_step, torque, force, MOI);
@@ -864,6 +869,11 @@ CFDDEMSolver<dim>::dem_iterator(unsigned int counter)
           const auto parallel_triangulation =
             dynamic_cast<parallel::distributed::Triangulation<dim> *>(
               &*this->triangulation);
+
+          std::vector<Tensor<1, 3>> cell_acceleration(
+            parallel_triangulation->n_active_cells());
+          disable_contacts_object.get_cell_acceleration(cell_acceleration);
+
           integrator_object->integrate(
             this->particle_handler,
             g,
@@ -872,7 +882,8 @@ CFDDEMSolver<dim>::dem_iterator(unsigned int counter)
             force,
             MOI,
             *parallel_triangulation,
-            disable_contacts_object.get_mobility_status());
+            disable_contacts_object.get_mobility_status(),
+            cell_acceleration);
         }
     }
 
@@ -951,7 +962,8 @@ CFDDEMSolver<dim>::dem_contact_build(unsigned int counter)
       // Execute broad search by filling containers of particle-particle
       // contact pair candidates and containers of particle-wall
       // contact pair candidates
-      if (!contacts_are_disabled(counter))
+      if (!contacts_are_disabled(counter,
+                                 this->simulation_control->get_step_number()))
         {
           container_manager.execute_particle_particle_broad_search(
             this->particle_handler, has_periodic_boundaries);
@@ -1420,7 +1432,6 @@ CFDDEMSolver<dim>::solve()
     this->cfd_dem_simulation_parameters.cfd_parameters.manifolds_parameters,
     true,
     this->cfd_dem_simulation_parameters.cfd_parameters.boundary_conditions);
-
 
   manage_triangulation_connections();
 

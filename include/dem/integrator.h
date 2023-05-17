@@ -97,7 +97,8 @@ public:
             const std::vector<double> &                      MOI,
             const parallel::distributed::Triangulation<dim> &triangulation,
             typename DEM::dem_data_structures<dim>::cell_index_int_map
-              &cell_mobility_status_map) = 0;
+              &                        cell_mobility_status_map,
+            std::vector<Tensor<1, 3>> &cell_acceleration) = 0;
 };
 
 #endif /* integration_h */

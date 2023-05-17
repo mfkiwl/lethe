@@ -99,7 +99,8 @@ ExplicitEulerIntegrator<dim>::integrate(
   const std::vector<double> & /* MOI */,
   const parallel::distributed::Triangulation<dim> & /* triangulation */,
   typename DEM::dem_data_structures<dim>::cell_index_int_map
-    & /* cell_mobility_status_map */)
+    & /* cell_mobility_status_map */,
+  std::vector<Tensor<1, 3>> & /* cell_acceleration */)
 {
   throw std::runtime_error(
     "Disabling particle contacts not supported with explicit Euler integrator, use Verlet integrator.");
