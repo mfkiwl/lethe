@@ -124,9 +124,9 @@ public:
   {
     inactive        = 0, // used for cells
     active          = 1, // used for cells and nodes
-    mobile          = 2, // used for cells and nodes
-    advected        = 3, // used for cells and nodes
-    advected_active = 4, // used for cells and nodes
+    advected        = 2, // used for cells and nodes
+    advected_active = 3, // used for cells and nodes
+    mobile          = 4, // used for cells and nodes
     empty           = 5  // used for nodes only
   };
 

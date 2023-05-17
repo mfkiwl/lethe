@@ -200,10 +200,11 @@ DisableContacts<dim>::identify_mobility_status(
           // erase function returns the next iterator.
           cell = local_and_ghost_cells_copy.erase(cell);
 
-          // Assign empty status to all nodes
+          // Assign empty status to nodes (and also check for periodic)
           for (auto node_id : local_dof_indices)
             {
               mobility_at_nodes(node_id) = mobility_status::empty;
+              assign_to_periodic_node(node_id, mobility_status::empty);
             }
         }
       else
@@ -217,7 +218,7 @@ DisableContacts<dim>::identify_mobility_status(
   mobility_at_nodes.update_ghost_values();
 
   // Calculate the average granular temperature, solid fraction and average
-  // velocity for each cells currently in the local_and_ghost_cells_copy set (no
+  // velocity for each cell currently in the local_and_ghost_cells_copy set (no
   // empty cells)
   Vector<double> granular_temperature_average(n_active_cells);
   Vector<double> solid_fractions(n_active_cells);
@@ -244,7 +245,7 @@ DisableContacts<dim>::identify_mobility_status(
       bool has_empty_neighbor = false;
       for (auto node_id : local_dof_indices)
         {
-          if (mobility_at_nodes[node_id] == mobility_status::empty)
+          if (mobility_at_nodes(node_id) == mobility_status::empty)
             {
               has_empty_neighbor = true;
               break; // No need to check the other nodes
@@ -276,7 +277,10 @@ DisableContacts<dim>::identify_mobility_status(
               // node = max(mobile (2), empty (3))    = empty (3)
               mobility_at_nodes(node_id) =
                 std::max((int)mobility_status::mobile,
-                         mobility_at_nodes[node_id]);
+                         mobility_at_nodes(node_id));
+              assign_to_periodic_node(node_id,
+                                      mobility_at_nodes(node_id),
+                                      true);
             }
         }
       else
@@ -305,7 +309,7 @@ DisableContacts<dim>::identify_mobility_status(
       for (auto node_id : local_dof_indices)
         {
           // Check if node is mobile and assign mobile status to the cell
-          if (mobility_at_nodes[node_id] == mobility_status::mobile)
+          if (mobility_at_nodes(node_id) == mobility_status::mobile)
             {
               // Assign mobile status to cell in map
               const unsigned int cell_id = (*cell)->active_cell_index();
@@ -327,8 +331,11 @@ DisableContacts<dim>::identify_mobility_status(
                   // node = max(active (1), inactive (0)) = active (1)
                   // node = max(active (1), empty (3))    = empty (3)
                   // node = max(active (1), mobile (2))   = mobile (2)
-                  mobility_at_nodes[node_id] =
-                    std::max((int)active_status, mobility_at_nodes[node_id]);
+                  mobility_at_nodes(node_id) =
+                    std::max((int)active_status, mobility_at_nodes(node_id));
+                  assign_to_periodic_node(node_id,
+                                          mobility_at_nodes(node_id),
+                                          true);
                 }
               break; // No need to check the other nodes
             }
@@ -360,11 +367,11 @@ DisableContacts<dim>::identify_mobility_status(
       for (auto node_id : local_dofs_indices)
         {
           has_active_nodes =
-            (mobility_at_nodes[node_id] == (int)active_status) ||
+            (mobility_at_nodes(node_id) == (int)active_status) ||
             has_active_nodes;
 
           has_mobile_nodes =
-            (mobility_at_nodes[node_id] == mobility_status::mobile) ||
+            (mobility_at_nodes(node_id) == mobility_status::mobile) ||
             has_mobile_nodes;
         }
 
