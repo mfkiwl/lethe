@@ -1321,15 +1321,14 @@ DEMSolver<dim>::solve()
             }
           else // has_disabled_contacts && contact_build_number > 1
             {
-              integrator_object->integrate(
-                particle_handler,
-                g,
-                simulation_control->get_time_step(),
-                torque,
-                force,
-                MOI,
-                triangulation,
-                disable_contacts_object);
+              integrator_object->integrate(particle_handler,
+                                           g,
+                                           simulation_control->get_time_step(),
+                                           torque,
+                                           force,
+                                           MOI,
+                                           triangulation,
+                                           disable_contacts_object);
             }
         }
 
