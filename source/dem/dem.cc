@@ -1298,8 +1298,6 @@ DEMSolver<dim>::solve()
       // Integration correction step (after force calculation)
       // In the first step, we have to obtain location of particles at half-step
       // time
-      disable_contacts_object.calculate_cell_acceleration(
-        this->particle_handler, g, force);
       if (simulation_control->get_step_number() == 0)
         {
           integrator_object->integrate_half_step_location(
@@ -1323,10 +1321,6 @@ DEMSolver<dim>::solve()
             }
           else // has_disabled_contacts && contact_build_number > 1
             {
-              std::vector<Tensor<1, 3>> cell_acceleration(
-                triangulation.n_active_cells());
-              disable_contacts_object.get_cell_acceleration(cell_acceleration);
-
               integrator_object->integrate(
                 particle_handler,
                 g,
@@ -1335,8 +1329,7 @@ DEMSolver<dim>::solve()
                 force,
                 MOI,
                 triangulation,
-                disable_contacts_object.get_mobility_status(),
-                cell_acceleration);
+                disable_contacts_object);
             }
         }
 

@@ -847,20 +847,23 @@ CFDDEMSolver<dim>::dem_iterator(unsigned int counter)
   // Integration correction step (after force calculation)
   // In the first step, we have to obtain location of particles at half-step
   // time
-  unsigned int step_number = this->simulation_control->get_step_number();
-  if (step_number + counter == 0)
+  if (this->simulation_control->get_step_number() == 0)
     {
       integrator_object->integrate_half_step_location(
         this->particle_handler, g, dem_time_step, torque, force, MOI);
+
+      disable_contacts_object.update_average_velocities_acceleration(
+        this->particle_handler, g, force, dem_time_step);
     }
   else
     {
-      if (!contacts_are_disabled(counter, step_number))
+      if (!contacts_are_disabled(counter))
         {
-          disable_contacts_object.calculate_cell_acceleration(
-            this->particle_handler, g, force);
           integrator_object->integrate(
             this->particle_handler, g, dem_time_step, torque, force, MOI);
+
+          disable_contacts_object.update_average_velocities_acceleration(
+            this->particle_handler, g, force, dem_time_step);
         }
       else // contacts are disabled
         {
@@ -868,20 +871,14 @@ CFDDEMSolver<dim>::dem_iterator(unsigned int counter)
             dynamic_cast<parallel::distributed::Triangulation<dim> *>(
               &*this->triangulation);
 
-          std::vector<Tensor<1, 3>> cell_acceleration(
-            parallel_triangulation->n_active_cells());
-          disable_contacts_object.get_cell_acceleration(cell_acceleration);
-
-          integrator_object->integrate(
-            this->particle_handler,
-            g,
-            dem_time_step,
-            torque,
-            force,
-            MOI,
-            *parallel_triangulation,
-            disable_contacts_object.get_mobility_status(),
-            cell_acceleration);
+          integrator_object->integrate(this->particle_handler,
+                                       g,
+                                       dem_time_step,
+                                       torque,
+                                       force,
+                                       MOI,
+                                       *parallel_triangulation,
+                                       disable_contacts_object);
         }
     }
 
@@ -960,8 +957,7 @@ CFDDEMSolver<dim>::dem_contact_build(unsigned int counter)
       // Execute broad search by filling containers of particle-particle
       // contact pair candidates and containers of particle-wall
       // contact pair candidates
-      if (!contacts_are_disabled(counter,
-                                 this->simulation_control->get_step_number()))
+      if (!contacts_are_disabled(counter))
         {
           container_manager.execute_particle_particle_broad_search(
             this->particle_handler, has_periodic_boundaries);
@@ -1443,18 +1439,10 @@ CFDDEMSolver<dim>::solve()
 
   this->setup_dofs();
 
-  // Remap periodic nodes after setup of dofs
-  if (has_periodic_boundaries && has_disabled_contacts)
-    {
-      disable_contacts_object.map_periodic_nodes(
-        this->void_fraction_constraints);
-    }
-
   this->set_initial_condition(
     this->cfd_dem_simulation_parameters.cfd_parameters.initial_condition->type,
     this->cfd_dem_simulation_parameters.cfd_parameters.restart_parameters
       .restart);
-
 
   // In the case the simulation is being restarted from a checkpoint file, the
   // checkpoint_step parameter is set to true. This allows to perform all
@@ -1468,6 +1456,13 @@ CFDDEMSolver<dim>::solve()
     checkpoint_step = false;
 
   initialize_dem_parameters();
+
+  // Remap periodic nodes after setup of dofs
+  if (has_periodic_boundaries && has_disabled_contacts)
+    {
+      disable_contacts_object.map_periodic_nodes(
+        this->void_fraction_constraints);
+    }
 
   // Calculate first instance of void fraction once particles are set-up
   this->vertices_cell_mapping();
