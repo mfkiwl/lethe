@@ -672,7 +672,7 @@ namespace Parameters
   /**
    * @brief FEM - The finite element section
    * controls the properties of the finite element method. This section
-   * constrols the order of polynomial integration and the number of quadrature
+   * controls the order of polynomial integration and the number of quadrature
    * points within the cells.
    */
   struct FEM
@@ -694,6 +694,9 @@ namespace Parameters
 
     // Interpolation order vof model
     unsigned int VOF_order;
+
+    // Interpolation order Cahn-Hilliard
+    unsigned int cahn_hilliard_order;
 
     // Apply high order mapping everywhere
     bool qmapping_all;

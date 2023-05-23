@@ -152,6 +152,7 @@ public:
     gather_void_fraction                    = false;
     gather_particles_information            = false;
     gather_temperature                      = false;
+    gather_cahn_hilliard                    = false;
     gather_hessian = properties_manager.is_non_newtonian();
 
     if (sd.gather_vof)
@@ -180,6 +181,13 @@ public:
       enable_heat_transfer(sd.fe_values_temperature->get_fe(),
                            sd.fe_values_temperature->get_quadrature(),
                            sd.fe_values_temperature->get_mapping());
+
+    if (sd.gather_cahn_hilliard)
+      enable_heat_transfer(sd.fe_values_cahn_hilliard->get_fe(),
+                           sd.fe_values_cahn_hilliard->get_quadrature(),
+                           sd.fe_values_cahn_hilliard->get_mapping());
+
+
     gather_hessian = sd.gather_hessian;
   }
 
@@ -900,6 +908,51 @@ public:
       current_solution, this->temperature_gradients);
   }
 
+  /**
+   * @brief enable_cahn_hilliard Enables the collection of the Cahn-Hilliard data (phase order and chemical potential field) by the scratch
+   *
+   * @param fe FiniteElement associated with the Cahn-Hilliard equations
+   *
+   * @param quadrature Quadrature rule of the Navier-Stokes problem assembly
+   *
+   * @param mapping Mapping used for the Navier-Stokes problem assembly
+   */
+
+  void
+  enable_cahn_hilliard(const FiniteElement<dim> &fe,
+                       const Quadrature<dim> &   quadrature,
+                       const Mapping<dim> &      mapping);
+
+
+  /** @brief Reinitialize the content of the scratch for the Cahn-Hilliard equations
+   *
+   * @param cell The cell over which the assembly is being carried.
+   * This cell must be compatible with the cahn-hilliard FE and not the
+   * Navier-Stokes FE
+   *
+   * @param current_solution The present value of the solution for phase order and chemical potential
+   *
+   * @param previous_solutions The solutions at the previous time steps for phase order and chemical potential
+   *
+   */
+
+  template <typename VectorType>
+  void
+  reinit_cahn_hilliard(
+    const typename DoFHandler<dim>::active_cell_iterator &cell,
+    const VectorType &                                    current_solution)
+  {
+    this->fe_values_cahn_hilliard->reinit(cell);
+
+    // Gather temperature
+    this->fe_values_cahn_hilliard->get_function_values(current_solution,
+                                                     this->temperature_values);
+
+    // Gather temperature gradient
+    this->fe_values_cahn_hilliard->get_function_gradients(
+      current_solution, this->temperature_gradients);
+  }
+
   /** @brief Calculates the physical properties. This function calculates the physical properties
    * that may be required by the fluid dynamics problem. Namely the kinematic
    * viscosity and, when required, the density.
@@ -1034,6 +1087,20 @@ public:
   std::vector<Tensor<1, dim>> temperature_gradients;
   // This is stored as a shared_ptr because it is only instantiated when needed
   std::shared_ptr<FEValues<dim>> fe_values_temperature;
+
+  /**
+   * Scratch component for the Cahn-Hilliard equations
+   */
+  bool                        gather_cahn_hilliard;
+  unsigned int                n_dofs_cahn_hilliard;
+  std::vector<double>         phase_order_values;
+  std::vector<double>         chemical_potential_values;
+  std::vector<Tensor<1, dim>> phase_order_gradients;
+  std::vector<Tensor<1, dim>> chemical_potential_gradients;
+  // This is stored as a shared_ptr because it is only instantiated when needed
+  std::shared_ptr<FEValues<dim>> fe_values_cahn_hilliard;
+  FEValuesExtractors::Scalar phase_order;
+  FEValuesExtractors::Scalar chemical_potential;
 
   /**
    * Is boundary cell indicator

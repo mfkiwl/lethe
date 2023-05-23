@@ -593,6 +593,15 @@ GLSNavierStokesSolver<dim>::assemble_system_matrix_without_preconditioner()
                                         *this->mapping);
     }
 
+//  if (this->simulation_parameters.multiphysics.cahn_hilliard)
+//    {
+//      const DoFHandler<dim> *dof_handler_ht =
+//        this->multiphysics->get_dof_handler(PhysicsID::cahn_hilliard);
+//      scratch_data.enable_cahn_hilliard(dof_handler_ht->get_fe(),
+//                                        *this->cell_quadrature,
+//                                        *this->mapping);
+//    }
+
   WorkStream::run(
     this->dof_handler.begin_active(),
     this->dof_handler.end(),
@@ -686,6 +695,22 @@ GLSNavierStokesSolver<dim>::assemble_local_system_matrix(
                                         *this->multiphysics->get_solution(
                                           PhysicsID::heat_transfer));
     }
+
+//  if (this->simulation_parameters.multiphysics.cahn_hilliard)
+//    {
+//      const DoFHandler<dim> *dof_handler_ht =
+//        this->multiphysics->get_dof_handler(PhysicsID::cahn_hilliard);
+//
+//      typename DoFHandler<dim>::active_cell_iterator cahn_hilliard_cell(
+//        &(*(this->triangulation)),
+//        cell->level(),
+//        cell->index(),
+//        dof_handler_ht);
+//
+//      scratch_data.reinit_cahn_hilliard(cahn_hilliard_cell,
+//                                        *this->multiphysics->get_solution(
+//                                          PhysicsID::cahn_hilliard));
+//    }
 
   scratch_data.calculate_physical_properties();
 

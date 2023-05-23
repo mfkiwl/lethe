@@ -56,6 +56,10 @@ namespace BoundaryConditions
     tracer_dirichlet,
     // for vof
     pw,
+    // for Cahn-Hilliard
+    dirichlet_phase_order,
+    dirichlet_potential,
+    angle_of_contact,
   };
 
   /**
@@ -439,6 +443,7 @@ namespace BoundaryConditions
     parse_boundary(ParameterHandler &prm, unsigned int i_bc);
     void
     parse_parameters(ParameterHandler &prm);
+
   };
 
   /**
@@ -732,6 +737,183 @@ namespace BoundaryConditions
       this->size = prm.get_integer("number");
 
       this->type.resize(this->size);
+
+      for (unsigned int n = 0; n < this->size; n++)
+        {
+          prm.enter_subsection("bc " + std::to_string(n));
+          {
+            parse_boundary(prm, n);
+          }
+          prm.leave_subsection();
+        }
+    }
+    prm.leave_subsection();
+  }
+
+  /**
+ * @brief This class manages the boundary conditions for the Cahn-Hilliard solver
+ * It introduces the boundary functions and declares the boundary conditions
+ * coherently.
+ *  - if bc type is "dirichlet" (Dirichlet condition), "value" is the
+ * double passed to the deal.ii ConstantFunction
+
+  */
+
+    template <int dim>
+    class CahnHilliardBoundaryConditions : public BoundaryConditions<dim>
+  {
+  public:
+
+    std::vector<double> value_phase_order;
+    std::vector<double> value_potential;
+    std::vector<double> angle_of_contact;
+
+
+    void
+    declareDefaultEntry(ParameterHandler &prm, unsigned int i_bc);
+    void
+    declare_parameters(ParameterHandler &prm);
+    void
+    parse_boundary(ParameterHandler &prm, unsigned int i_bc);
+    void
+    parse_parameters(ParameterHandler &prm);
+  };
+
+  /**
+   * @brief Declares the default parameters for a boundary condition id i_bc
+   * i.e. Dirichlet condition (ConstantFunction) with value 0
+   *
+   * @param prm A parameter handler which is currently used to parse the simulation information
+   *
+   * @param i_bc The boundary condition id.
+   */
+  template <int dim>
+  void
+  CahnHilliardBoundaryConditions<dim>::declareDefaultEntry(ParameterHandler &prm,
+                                                     unsigned int      i_bc)
+  {
+    prm.declare_entry("type",
+                      "noflux",
+                      Patterns::Selection("noflux|dirichlet_phase_order|dirichlet_chemical_potential|angle_of_contact"),
+                      "Type of boundary condition for Cahn-Hilliard"
+                      "Choices are <noflux|dirichlet_phase_order|dirichlet_potential|angle_of_contact>.");
+
+    prm.declare_entry("id",
+                      Utilities::int_to_string(i_bc, 2),
+                      Patterns::Integer(),
+                      "Mesh id for boundary conditions");
+
+    prm.declare_entry("value_phase_order",
+                      "0",
+                      Patterns::Double(),
+                      "Value (Double) for constant phase order at bc");
+
+    prm.declare_entry("value_potential",
+                      "0",
+                      Patterns::Double(),
+                      "Value (Double) for constant potential at bc");
+
+    prm.declare_entry("angle_of_contact",
+                      "90",
+                      Patterns::Double(),
+                      "Value (Double) for constant potential at bc");
+
+  }
+
+  /**
+   * @brief Declare the boundary conditions default parameters
+   * Calls declareDefaultEntry method for each boundary (max 14 boundaries)
+   *
+   * @param prm A parameter handler which is currently used to parse the simulation information
+   */
+  template <int dim>
+  void
+  CahnHilliardBoundaryConditions<dim>::declare_parameters(ParameterHandler &prm)
+  {
+    this->max_size = 14;
+
+    prm.enter_subsection("boundary conditions cahn hilliard");
+    {
+      prm.declare_entry("number",
+                        "0",
+                        Patterns::Integer(),
+                        "Number of boundary conditions");
+      this->id.resize(this->max_size);
+      this->type.resize(this->max_size);
+
+      for (unsigned int n = 0; n < this->max_size; n++)
+        {
+          prm.enter_subsection("bc " + std::to_string(n));
+          {
+            declareDefaultEntry(prm, n);
+          }
+          prm.leave_subsection();
+        }
+    }
+    prm.leave_subsection();
+  }
+
+  /**
+   * @brief Parse the information for a boundary condition
+   *
+   * @param prm A parameter handler which is currently used to parse the simulation information
+   *
+   * @param i_bc The boundary condition number (and not necessarily its id).
+   */
+
+  template <int dim>
+  void
+  CahnHilliardBoundaryConditions<dim>::parse_boundary(ParameterHandler &prm,
+                                                unsigned int      i_bc)
+  {
+    const std::string op = prm.get("type");
+
+
+    if (op == "dirichlet_phase_order")
+      {
+        this->type[i_bc] = BoundaryType::dirichlet_phase_order;
+        this->value_phase_order[i_bc] = prm.get_double("value");
+      }
+
+    if (op == "dirichlet_chemical_potential")
+      {
+        this->type[i_bc] = BoundaryType::dirichlet_potential;
+        this->value_potential[i_bc] = prm.get_double("value");
+      }
+
+    if (op == "noflux")
+      {
+        this->type[i_bc] = BoundaryType::noflux;
+      }
+
+    if (op == "angle_of_contact")
+      {
+        this->angle_of_contact[i_bc] = prm.get_double("value");
+      }
+
+    this->id[i_bc] = prm.get_integer("id");
+  }
+
+  /**
+   * @brief Parse the boundary conditions
+   * Calls parse_boundary method for each boundary (max 14 boundaries)
+   *
+   * @param prm A parameter handler which is currently used to parse the simulation information
+   */
+
+  template <int dim>
+  void
+  CahnHilliardBoundaryConditions<dim>::parse_parameters(ParameterHandler &prm)
+  {
+    prm.enter_subsection("boundary conditions cahn hilliard");
+    {
+      this->size = prm.get_integer("number");
+
+      this->type.resize(this->size);
+      this->id.resize(this->size);
+      this->value_phase_order.resize(this->size);
+      this->value_potential.resize(this->size);
+      this->angle_of_contact.resize(this->size);
 
       for (unsigned int n = 0; n < this->size; n++)
         {
