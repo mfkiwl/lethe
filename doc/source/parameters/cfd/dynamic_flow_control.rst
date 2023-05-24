@@ -3,7 +3,7 @@ Dynamic flow control
 
 The purpose of this subsection is to enable dynamic flow control. It is important when we want to simulate an average
 velocity on a specific boundary (CFD) or the whole domain (for CFD-DEM). To control the average velocity of the flow, the code
-calculates a :math:`\beta` coefficient at each time step that is used to keep the average velocity at a targetted value.
+calculates a :math:`\beta` coefficient at each time step that is used as a source term in the momentum equation to keep the average velocity at a targeted value.
 
 The main controller of the average velocity is the following equation and is based on approach of Wang [1]:
 
@@ -48,7 +48,7 @@ The default parameters are:
 
 * The ``alpha`` parameter is a relaxation coefficient that is used to control the convergence speed or stability. The higher the value, the faster the convergence. However, if the value is too high, there might be oscillations and the simulation could be unstable.
 
-* The ``beta threshold`` parameter is the threshold on beta calculated at the previous time step that prevents the new calculated beta force to be updated, it is kept as the previous beta value. This could avoid the reassembly of the matrix because of the updated force term when reuse matrix option is enable for the non-linear solver
+* The ``beta threshold`` parameter is the threshold on beta calculated at the previous time step that prevents the new calculated beta force to be updated. If ``abs(beta_n - beta_n+1) < abs(beta_n * beta_threshold)``, the previous beta value is kept. This could avoid the reassembly of the matrix because of the updated force term when reuse matrix option is enabled for the non-linear solver.
 
 Reference
 ---------
