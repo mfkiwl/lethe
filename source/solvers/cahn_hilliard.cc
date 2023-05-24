@@ -47,29 +47,7 @@ template <int dim>
 void
 CahnHilliard<dim>::assemble_system_matrix()
 {
-  this->system_matrix = 0;
-  setup_assemblers();
-
-  const DoFHandler<dim> *dof_handler_fluid =
-    multiphysics->get_dof_handler(PhysicsID::fluid_dynamics);
-
-  auto scratch_data = CahnHilliardScratchData<dim>(
-    this->simulation_parameters.physical_properties_manager,
-    *this->fe,
-    *this->cell_quadrature,
-    *this->mapping,
-    dof_handler_fluid->get_fe());
-
-  WorkStream::run(this->dof_handler.begin_active(),
-                  this->dof_handler.end(),
-                  *this,
-                  &CahnHilliard::assemble_local_system_matrix,
-                  &CahnHilliard::copy_local_matrix_to_global_matrix,
-                  scratch_data,
-                  StabilizedMethodsCopyData(this->fe->n_dofs_per_cell(),
-                                            this->cell_quadrature->size()));
-
-  system_matrix.compress(VectorOperation::add);
+  return;
 }
 
 template <int dim>
@@ -79,47 +57,7 @@ CahnHilliard<dim>::assemble_local_system_matrix(
   CahnHilliardScratchData<dim> &                     scratch_data,
   StabilizedMethodsCopyData &                           copy_data)
 {
-  copy_data.cell_is_local = cell->is_locally_owned();
-  if (!cell->is_locally_owned())
-    return;
-
-  auto &source_term = simulation_parameters.source_term->cahn_hilliard_source;
-  source_term.set_time(simulation_control->get_current_time());
-
-  scratch_data.reinit(cell,
-                      this->evaluation_point,
-                      this->previous_solutions,
-                      this->solution_stages,
-                      &source_term);
-
-  const DoFHandler<dim> *dof_handler_fluid =
-    multiphysics->get_dof_handler(PhysicsID::fluid_dynamics);
-
-  typename DoFHandler<dim>::active_cell_iterator velocity_cell(
-    &(*triangulation), cell->level(), cell->index(), dof_handler_fluid);
-
-  if (multiphysics->fluid_dynamics_is_block())
-    {
-      scratch_data.reinit_velocity(velocity_cell,
-                                   *multiphysics->get_block_solution(
-                                     PhysicsID::fluid_dynamics));
-    }
-  else
-    {
-      scratch_data.reinit_velocity(
-        velocity_cell, *multiphysics->get_solution(PhysicsID::fluid_dynamics));
-    }
-
-  //scratch_data.calculate_physical_properties();
-  copy_data.reset();
-
-  for (auto &assembler : this->assemblers)
-    {
-      assembler->assemble_matrix(scratch_data, copy_data);
-    }
-
-
-  cell->get_dof_indices(copy_data.local_dof_indices);
+  return;
 }
 
 template <int dim>
@@ -127,13 +65,7 @@ void
 CahnHilliard<dim>::copy_local_matrix_to_global_matrix(
   const StabilizedMethodsCopyData &copy_data)
 {
-  if (!copy_data.cell_is_local)
-    return;
-
-  const AffineConstraints<double> &constraints_used = this->zero_constraints;
-  constraints_used.distribute_local_to_global(copy_data.local_matrix,
-                                              copy_data.local_dof_indices,
-                                              system_matrix);
+  return;
 }
 
 
@@ -141,30 +73,7 @@ template <int dim>
 void
 CahnHilliard<dim>::assemble_system_rhs()
 {
-  // TimerOutput::Scope t(this->computing_timer, "Assemble RHS");
-  this->system_rhs = 0;
-  setup_assemblers();
-
-  const DoFHandler<dim> *dof_handler_fluid =
-    multiphysics->get_dof_handler(PhysicsID::fluid_dynamics);
-
-  auto scratch_data = CahnHilliardScratchData<dim>(
-    this->simulation_parameters.physical_properties_manager,
-    *this->fe,
-    *this->cell_quadrature,
-    *this->mapping,
-    dof_handler_fluid->get_fe());
-
-  WorkStream::run(this->dof_handler.begin_active(),
-                  this->dof_handler.end(),
-                  *this,
-                  &CahnHilliard::assemble_local_system_rhs,
-                  &CahnHilliard::copy_local_rhs_to_global_rhs,
-                  scratch_data,
-                  StabilizedMethodsCopyData(this->fe->n_dofs_per_cell(),
-                                            this->cell_quadrature->size()));
-
-  this->system_rhs.compress(VectorOperation::add);
+  return;
 }
 
 template <int dim>
@@ -174,46 +83,7 @@ CahnHilliard<dim>::assemble_local_system_rhs(
   CahnHilliardScratchData<dim> &                              scratch_data,
   StabilizedMethodsCopyData &                           copy_data)
 {
-  copy_data.cell_is_local = cell->is_locally_owned();
-  if (!cell->is_locally_owned())
-    return;
-
-  auto &source_term = simulation_parameters.source_term->cahn_hilliard_source;
-  source_term.set_time(simulation_control->get_current_time());
-
-  scratch_data.reinit(cell,
-                      this->evaluation_point,
-                      this->previous_solutions,
-                      this->solution_stages,
-                      &source_term);
-
-  const DoFHandler<dim> *dof_handler_fluid =
-    multiphysics->get_dof_handler(PhysicsID::fluid_dynamics);
-
-  typename DoFHandler<dim>::active_cell_iterator velocity_cell(
-    &(*triangulation), cell->level(), cell->index(), dof_handler_fluid);
-
-  if (multiphysics->fluid_dynamics_is_block())
-    {
-      scratch_data.reinit_velocity(velocity_cell,
-                                   *multiphysics->get_block_solution(
-                                     PhysicsID::fluid_dynamics));
-    }
-  else
-    {
-      scratch_data.reinit_velocity(
-        velocity_cell, *multiphysics->get_solution(PhysicsID::fluid_dynamics));
-    }
-
-  //scratch_data.calculate_physical_properties();
-  copy_data.reset();
-
-  for (auto &assembler : this->assemblers)
-    {
-      assembler->assemble_rhs(scratch_data, copy_data);
-    }
-
-  cell->get_dof_indices(copy_data.local_dof_indices);
+  return;
 }
 
 template <int dim>
@@ -221,13 +91,7 @@ void
 CahnHilliard<dim>::copy_local_rhs_to_global_rhs(
   const StabilizedMethodsCopyData &copy_data)
 {
-  if (!copy_data.cell_is_local)
-    return;
-
-  const AffineConstraints<double> &constraints_used = this->zero_constraints;
-  constraints_used.distribute_local_to_global(copy_data.local_rhs,
-                                              copy_data.local_dof_indices,
-                                              system_rhs);
+  return;
 }
 
 template <int dim>
@@ -249,72 +113,17 @@ CahnHilliard<dim>::attach_solution_to_output(DataOut<dim> &data_out)
   data_component_interpretation.push_back(
     DataComponentInterpretation::component_is_scalar);
 
-  //data_out.attach_dof_handler(dof_handler);
   data_out.add_data_vector(dof_handler,present_solution,
                            solution_names,
                            data_component_interpretation);
 
-  //data_out.add_data_vector(dof_handler, present_solution, "cahn_hilliard");
 }
 
 template <int dim>
 std::pair<double, double>
 CahnHilliard<dim>::calculate_L2_error()
 {
-  auto mpi_communicator = triangulation->get_communicator();
-
-  FEValues<dim> fe_values(*mapping,
-                          *fe,
-                          *cell_quadrature,
-                          update_values | update_gradients |
-                            update_quadrature_points | update_JxW_values);
-
-  const FEValuesExtractors::Scalar phase_order(0);
-  const FEValuesExtractors::Scalar chemical_potential(1);
-
-  const unsigned int n_q_points = cell_quadrature->size();
-
-  std::vector<Vector<double>> q_exact_solution(n_q_points, Vector<double>(2));
-  std::vector<double> local_phase_order_value(n_q_points);
-  std::vector<double> local_potential_value(n_q_points);
-
-  auto &exact_solution = simulation_parameters.analytical_solution->cahn_hilliard;
-  exact_solution.set_time(simulation_control->get_current_time());
-
-  double l2error_phase_order;
-  double l2error_potential;
-
-
-  for (const auto &cell : dof_handler.active_cell_iterators())
-    {
-      if (cell->is_locally_owned())
-        {
-          fe_values.reinit(cell);
-          fe_values[phase_order].get_function_values(present_solution, local_phase_order_value);
-          fe_values[chemical_potential].get_function_values(present_solution, local_potential_value);
-
-          // Get the exact solution at all gauss points
-          exact_solution.vector_value_list(fe_values.get_quadrature_points(),
-                                    q_exact_solution);
-
-          for (unsigned int q = 0; q < n_q_points; q++)
-            {
-              double sim_phase_order   = local_phase_order_value[q];
-              double exact_phase_order = q_exact_solution[q][0];
-              double sim_potential   = local_potential_value[q];
-              double exact_potential = q_exact_solution[q][1];
-
-              l2error_phase_order += (sim_phase_order - exact_phase_order) * (sim_phase_order - exact_phase_order) * fe_values.JxW(q);
-              l2error_potential += (sim_potential - exact_potential) * (sim_potential - exact_potential) * fe_values.JxW(q);
-
-            }
-        }
-    }
-  l2error_phase_order = Utilities::MPI::sum(l2error_phase_order, mpi_communicator);
-  l2error_potential = Utilities::MPI::sum(l2error_potential, mpi_communicator);
-
-
-  return std::make_pair(std::sqrt(l2error_phase_order), std::sqrt(l2error_potential));
+ return std::pair<double,double>();
 }
 
 template <int dim>
@@ -513,70 +322,9 @@ CahnHilliard<dim>::setup_dofs()
     nonzero_constraints.clear();
     DoFTools::make_hanging_node_constraints(this->dof_handler,
                                             nonzero_constraints);
-
-//    for (unsigned int i_bc = 0;
-//         i_bc < this->simulation_parameters.boundary_conditions_cahn_hilliard.size;
-//         ++i_bc)
-//      {
-//        // Dirichlet condition on phase order : imposed phase order at i_bc
-//        if (this->simulation_parameters.boundary_conditions_cahn_hilliard.type[i_bc] ==
-//            BoundaryConditions::BoundaryType::dirichlet_phase_order)
-//          {
-//            VectorTools::interpolate_boundary_values(
-//              this->dof_handler,
-//              this->simulation_parameters.boundary_conditions_cahn_hilliard.id[i_bc],
-//              *this->simulation_parameters.boundary_conditions_cahn_hilliard
-//                 .cahn_hilliard[i_bc],
-//              nonzero_constraints,
-//              this->fe->component_mask(phase_order));
-//          }
-//        // Dirichlet condition on chemical potential : imposed chemical potential at i_bc
-//        else if (this->simulation_parameters.boundary_conditions_cahn_hilliard.type[i_bc] ==
-//                 BoundaryConditions::BoundaryType::dirichlet_potential)
-//          {
-//            VectorTools::interpolate_boundary_values(
-//              this->dof_handler,
-//              this->simulation_parameters.boundary_conditions_cahn_hilliard.id[i_bc],
-//              *this->simulation_parameters.boundary_conditions_cahn_hilliard
-//                 .cahn_hilliard[i_bc],
-//              nonzero_constraints,
-//              this->fe->component_mask(chemical_potential));
-//          }
-//      }
   }
   nonzero_constraints.close();
 
-  // Boundary conditions for Newton correction
-//  {
-//    zero_constraints.clear();
-//    DoFTools::make_hanging_node_constraints(this->dof_handler,
-//                                            zero_constraints);
-//
-//    for (unsigned int i_bc = 0;
-//         i_bc < this->simulation_parameters.boundary_conditions_cahn_hilliard.size;
-//         ++i_bc)
-//      {
-//        if (this->simulation_parameters.boundary_conditions_cahn_hilliard.type[i_bc] ==
-//            BoundaryConditions::BoundaryType::dirichlet_phase_order)
-//          {
-//            VectorTools::interpolate_boundary_values(
-//              this->dof_handler,
-//              this->simulation_parameters.boundary_conditions_cahn_hilliard.id[i_bc],
-//              Functions::ZeroFunction<dim>(),
-//              zero_constraints);
-//          }
-//
-//        if (this->simulation_parameters.boundary_conditions_cahn_hilliard.type[i_bc] ==
-//            BoundaryConditions::BoundaryType::dirichlet_potential)
-//          {
-//            VectorTools::interpolate_boundary_values(
-//              this->dof_handler,
-//              this->simulation_parameters.boundary_conditions_cahn_hilliard.id[i_bc],
-//              Functions::ZeroFunction<dim>(),
-//              zero_constraints);
-//          }
-//      }
-//  }
   zero_constraints.close();
 
   // Sparse matrices initialization

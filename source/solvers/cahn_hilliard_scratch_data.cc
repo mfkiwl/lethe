@@ -28,10 +28,6 @@ CahnHilliardScratchData<dim>::allocate()
   this->chemical_potential_gradients     = std::vector<Tensor<1, dim>>(n_q_points);
   this->chemical_potential_laplacians    = std::vector<double>(n_q_points);
 
-//  this->tracer_diffusivity   = std::vector<double>(n_q_points);
-//  this->tracer_diffusivity_0 = std::vector<double>(n_q_points);
-//  this->tracer_diffusivity_1 = std::vector<double>(n_q_points);
-
 
   // Velocity for BDF schemes
   this->previous_phase_order_values =
@@ -72,46 +68,6 @@ CahnHilliardScratchData<dim>::allocate()
     std::vector<std::vector<double>>(n_q_points, std::vector<double>(n_dofs));
 }
 
-//Must be completed to compute the physical properties everywhere depending on the phase order.
-//template <int dim>
-//void
-//CahnHilliardScratchData<dim>::calculate_physical_properties()
-//{
-//  // Case where you have one fluid
-//  switch (properties_manager.get_number_of_fluids())
-//    {
-//      case 1:
-//        {
-//          // In this case, only viscosity is the required property
-//          const auto diffusivity_model =
-//            properties_manager.get_tracer_diffusivity();
-//          diffusivity_model->vector_value(fields, tracer_diffusivity);
-//          break;
-//        }
-//      case 2:
-//        {
-//          // In this case,  we need both density and viscosity
-//          const auto diffusivity_models =
-//            properties_manager.get_tracer_diffusivity_vector();
-//
-//          diffusivity_models[0]->vector_value(fields, tracer_diffusivity_0);
-//          diffusivity_models[1]->vector_value(fields, tracer_diffusivity_1);
-//
-//          // TODO Incomplete at the present time because the tracer VOF complete
-//          // is not finished Blend the physical properties using the VOF field
-//          for (unsigned int q = 0; q < this->n_q_points; ++q)
-//            {
-//              //          tracer_diffusivity[q] =
-//              //            calculate_point_property(this->phase_values[q],
-//              //                                     this->density_0[q],
-//              //                                     this->density_1[q]);
-//            }
-//          break;
-//        }
-//      default:
-//        throw std::runtime_error("Unsupported number of fluids (>2)");
-//    }
-//}
 
 
 template class CahnHilliardScratchData<2>;
