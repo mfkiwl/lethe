@@ -46,7 +46,7 @@ public:
 
   virtual void
   assemble_matrix(CahnHilliardScratchData<dim> &   scratch_data,
-                  StabilizedMethodsCopyData &copy_data) = 0;
+                  StabilizedMethodsTensorCopyData<2> &copy_data) = 0;
 
 
   /**
@@ -60,7 +60,7 @@ public:
 
   virtual void
   assemble_rhs(CahnHilliardScratchData<dim> &   scratch_data,
-               StabilizedMethodsCopyData &copy_data) = 0;
+               StabilizedMethodsTensorCopyData<2> &copy_data) = 0;
 };
 
 
@@ -92,7 +92,7 @@ public:
    */
   virtual void
   assemble_matrix(CahnHilliardScratchData<dim> &   scratch_data,
-                  StabilizedMethodsCopyData &copy_data) override;
+                  StabilizedMethodsTensorCopyData<2> &copy_data) override;
 
 
   /**
@@ -102,7 +102,7 @@ public:
    */
   virtual void
   assemble_rhs(CahnHilliardScratchData<dim> &   scratch_data,
-               StabilizedMethodsCopyData &copy_data) override;
+               StabilizedMethodsTensorCopyData<2> &copy_data) override;
 
   const bool DCDD = true;
 
@@ -135,7 +135,7 @@ public:
 
   virtual void
   assemble_matrix(CahnHilliardScratchData<dim> &   scratch_data,
-                  StabilizedMethodsCopyData &copy_data) override;
+                  StabilizedMethodsTensorCopyData<2> &copy_data) override;
 
   /**
    * @brief assemble_rhs Assembles the rhs
@@ -144,7 +144,7 @@ public:
    */
   virtual void
   assemble_rhs(CahnHilliardScratchData<dim> &   scratch_data,
-               StabilizedMethodsCopyData &copy_data) override;
+               StabilizedMethodsTensorCopyData<2> &copy_data) override;
 
   std::shared_ptr<SimulationControl> simulation_control;
 };
