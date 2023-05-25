@@ -300,7 +300,7 @@ private:
   assemble_local_system_matrix(
     const typename DoFHandler<dim>::active_cell_iterator &cell,
     CahnHilliardScratchData<dim> &                     scratch_data,
-    StabilizedMethodsCopyData &                           copy_data);
+    StabilizedMethodsTensorCopyData<2> &                           copy_data);
 
   /**
    * @brief Assemble the local rhs for a given cell
@@ -319,7 +319,7 @@ private:
   assemble_local_system_rhs(
     const typename DoFHandler<dim>::active_cell_iterator &cell,
     CahnHilliardScratchData<dim> &                     scratch_data,
-    StabilizedMethodsCopyData &                           copy_data);
+    StabilizedMethodsTensorCopyData<2> &                           copy_data);
 
   /**
    * @brief sets up the vector of assembler functions
@@ -334,14 +334,14 @@ private:
 
   virtual void
   copy_local_matrix_to_global_matrix(
-    const StabilizedMethodsCopyData &copy_data);
+    const StabilizedMethodsTensorCopyData<2> &copy_data);
 
   /**
    * @brief Copy local cell rhs information to global rhs
    */
 
   virtual void
-  copy_local_rhs_to_global_rhs(const StabilizedMethodsCopyData &copy_data);
+  copy_local_rhs_to_global_rhs(const StabilizedMethodsTensorCopyData<2> &copy_data);
 
 
 
