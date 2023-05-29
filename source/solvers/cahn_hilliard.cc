@@ -496,6 +496,8 @@ CahnHilliard<dim>::set_initial_conditions()
                            this->newton_update,
                            this->fe->component_mask(phase_order));
 
+  //Set the initial chemical potential to 0. (May be discussed or modified
+  //later)
   VectorTools::interpolate(*this->mapping,
                            this->dof_handler,
                            this->simulation_parameters.initial_condition->cahn_hilliard,

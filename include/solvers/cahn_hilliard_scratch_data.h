@@ -240,6 +240,8 @@ public:
   reinit_velocity(const typename DoFHandler<dim>::active_cell_iterator &cell,
                   const VectorType &current_solution)
   {
+    FEValuesExtractors::Vector velocities(0);
+
     this->fe_values_fd.reinit(cell);
 
     this->fe_values_fd[velocities].get_function_values(current_solution,
