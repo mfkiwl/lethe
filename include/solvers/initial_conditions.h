@@ -170,7 +170,7 @@ namespace Parameters
 
       prm.enter_subsection("cahn hilliard");
       cahn_hilliard.declare_parameters(prm,2);
-      prm.set("Function expression", "0; 0");
+      prm.set("Function expression", "0; 0;");
       prm.leave_subsection();
 
       ramp.declare_parameters(prm);
