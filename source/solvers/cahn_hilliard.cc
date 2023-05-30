@@ -66,7 +66,7 @@ CahnHilliard<dim>::assemble_system_matrix()
                   &CahnHilliard::assemble_local_system_matrix,
                   &CahnHilliard::copy_local_matrix_to_global_matrix,
                   scratch_data,
-                  StabilizedMethodsTensorCopyData<2>(this->fe->n_dofs_per_cell(),
+                  StabilizedMethodsCopyData(this->fe->n_dofs_per_cell(),
                                             this->cell_quadrature->size()));
 
   system_matrix.compress(VectorOperation::add);
@@ -77,7 +77,7 @@ void
 CahnHilliard<dim>::assemble_local_system_matrix(
   const typename DoFHandler<dim>::active_cell_iterator &cell,
   CahnHilliardScratchData<dim> &                     scratch_data,
-  StabilizedMethodsTensorCopyData<2> &                           copy_data)
+  StabilizedMethodsCopyData &                           copy_data)
 {
   copy_data.cell_is_local = cell->is_locally_owned();
   if (!cell->is_locally_owned())
@@ -124,7 +124,7 @@ CahnHilliard<dim>::assemble_local_system_matrix(
 template <int dim>
 void
 CahnHilliard<dim>::copy_local_matrix_to_global_matrix(
-  const StabilizedMethodsTensorCopyData<2> &copy_data)
+  const StabilizedMethodsCopyData &copy_data)
 {
   if (!copy_data.cell_is_local)
     return;
@@ -160,7 +160,7 @@ CahnHilliard<dim>::assemble_system_rhs()
                   &CahnHilliard::assemble_local_system_rhs,
                   &CahnHilliard::copy_local_rhs_to_global_rhs,
                   scratch_data,
-                  StabilizedMethodsTensorCopyData<2>(this->fe->n_dofs_per_cell(),
+                  StabilizedMethodsCopyData(this->fe->n_dofs_per_cell(),
                                             this->cell_quadrature->size()));
 
   this->system_rhs.compress(VectorOperation::add);
@@ -171,20 +171,20 @@ void
 CahnHilliard<dim>::assemble_local_system_rhs(
   const typename DoFHandler<dim>::active_cell_iterator &cell,
   CahnHilliardScratchData<dim> &                              scratch_data,
-  StabilizedMethodsTensorCopyData<2> &                           copy_data)
+  StabilizedMethodsCopyData &                           copy_data)
 {
   copy_data.cell_is_local = cell->is_locally_owned();
   if (!cell->is_locally_owned())
     return;
 
-  auto &source_term = simulation_parameters.source_term->tracer_source;
-  source_term.set_time(simulation_control->get_current_time());
-
-  scratch_data.reinit(cell,
-                      this->evaluation_point,
-                      this->previous_solutions,
-                      this->solution_stages,
-                      &source_term);
+//  auto &source_term = simulation_parameters.source_term->cahn_hilliard_source;
+//  source_term.set_time(simulation_control->get_current_time());
+//
+//  scratch_data.reinit(cell,
+//                      this->evaluation_point,
+//                      this->previous_solutions,
+//                      this->solution_stages,
+//                      &source_term);
 
   const DoFHandler<dim> *dof_handler_fluid =
     multiphysics->get_dof_handler(PhysicsID::fluid_dynamics);
@@ -218,7 +218,7 @@ CahnHilliard<dim>::assemble_local_system_rhs(
 template <int dim>
 void
 CahnHilliard<dim>::copy_local_rhs_to_global_rhs(
-  const StabilizedMethodsTensorCopyData<2> &copy_data)
+  const StabilizedMethodsCopyData &copy_data)
 {
   if (!copy_data.cell_is_local)
     return;

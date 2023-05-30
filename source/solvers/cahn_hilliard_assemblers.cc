@@ -8,7 +8,7 @@
 template <int dim>
 void
 CahnHilliardAssemblerCore<dim>::assemble_matrix(CahnHilliardScratchData<dim> &scratch_data,
-                                          StabilizedMethodsTensorCopyData<2> &copy_data)
+                                          StabilizedMethodsCopyData &copy_data)
 {
   // Loop and quadrature informations
   const auto &       JxW_vec    = scratch_data.JxW;
@@ -21,7 +21,7 @@ CahnHilliardAssemblerCore<dim>::assemble_matrix(CahnHilliardScratchData<dim> &sc
 
   auto &local_matrix = copy_data.local_matrix;
 
-  Tensor<1,dim> velocity_field;
+  Tensor<1,dim> velocity_field({1,1});
 
   for (unsigned int q = 0; q<n_q_points; ++q)
     {
@@ -61,7 +61,7 @@ CahnHilliardAssemblerCore<dim>::assemble_matrix(CahnHilliardScratchData<dim> &sc
 template <int dim>
 void
 CahnHilliardAssemblerCore<dim>::assemble_rhs(CahnHilliardScratchData<dim> &   scratch_data,
-                                             StabilizedMethodsTensorCopyData<2> &copy_data)
+                                             StabilizedMethodsCopyData &copy_data)
 {
   // Loop and quadrature informations
   const auto &       JxW_vec    = scratch_data.JxW;
@@ -98,7 +98,7 @@ CahnHilliardAssemblerCore<dim>::assemble_rhs(CahnHilliardScratchData<dim> &   sc
             const Tensor<1,dim> grad_phi_phase_j = scratch_data.grad_phi_phase[q][j];
             const Tensor<1,dim> grad_phi_potential_j = scratch_data.grad_phi_potential[q][j];
 
-            local_matrix(i,j) +=  (velocity_field*phase_order_gradient*phi_phase_i //First equation
+            local_matrix(i,j) -=  (velocity_field*phase_order_gradient*phi_phase_i //First equation
                                    + D*grad_phi_phase_i*potential_gradient
                                    + phi_potential_i*potential_value
                                    - 4*W*phi_potential_i*(phase_order_value*phase_order_value*phase_order_value - phase_order_value)
@@ -115,7 +115,7 @@ template class CahnHilliardAssemblerCore<3>;
 template <int dim>
 void
 CahnHilliardAssemblerBDF<dim>::assemble_matrix(CahnHilliardScratchData<dim> &scratch_data,
-                                               StabilizedMethodsTensorCopyData<2> &copy_data)
+                                               StabilizedMethodsCopyData &copy_data)
 {
   // Loop and quadrature informations
   const auto &       JxW        = scratch_data.JxW;
@@ -159,7 +159,7 @@ CahnHilliardAssemblerBDF<dim>::assemble_matrix(CahnHilliardScratchData<dim> &scr
 template <int dim>
 void
 CahnHilliardAssemblerBDF<dim>::assemble_rhs(CahnHilliardScratchData<dim> &   scratch_data,
-                                            StabilizedMethodsTensorCopyData<2> &copy_data)
+                                            StabilizedMethodsCopyData &copy_data)
 {
   // Loop and quadrature informations
   const auto &       JxW        = scratch_data.JxW;
