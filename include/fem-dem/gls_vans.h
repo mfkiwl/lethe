@@ -148,7 +148,16 @@ private:
   void
   read_dem();
 
-  Tensor<1, dim>
+
+  /**
+   * @brief This function gives the periodic offset of the domain which is needed
+   * for the periodic boundary conditions using the QCM for void fraction.
+   *
+   * @param periodic_boundary_id The id of the periodic boundary 0
+   *
+   * @return The periodic offset
+   */
+  inline Tensor<1, dim>
   get_periodic_offset(unsigned int periodic_boundary_id) const
   {
     Tensor<1, dim> offset;
@@ -169,8 +178,8 @@ private:
 
                     // Check if face is on the periodic boundary 0, if so, get
                     // the periodic offset for one pair of periodic faces only
-                    // since only on periodic boundary align with axis is
-                    // currently implemented
+                    // since periodic boundaries are aligned with the direction
+                    // and only axis are currently allowed
                     if (face_boundary_id == periodic_boundary_id)
                       {
                         Point<dim> face_center = cell->face(face_id)->center();
@@ -189,7 +198,9 @@ private:
           }
       }
 
-    // No cells found on the periodic boundary on this processor, return zero
+    // A zero tensor is returned in case no cells are found on the periodic
+    // boundaries on this processor. This processor won't handle particle in
+    // cells at periodic boundaries, so it won't affect any computation.
     return offset;
   }
 
@@ -354,6 +365,7 @@ protected:
   bool           has_periodic_boundaries;
   Tensor<1, dim> periodic_offset;
   unsigned int   periodic_direction;
+
   std::map<unsigned int,
            std::set<typename DoFHandler<dim>::active_cell_iterator>>
     vertices_to_cell;

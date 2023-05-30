@@ -55,15 +55,19 @@ LetheGridTools::vertices_cell_mapping_with_periodic_boundaries(
   const auto &triangulation = dof_handler.get_triangulation();
 
   // A map of coinciding vertices labeled by an arbitrary element from them
+  // <label, [coinciding vertex indices]>
   std::map<unsigned int, std::vector<unsigned int>> coinciding_vertex_groups;
 
   // Map of a vertex to the label of a group of coinciding vertices
+  // <vertex index, label>
   std::map<unsigned int, unsigned int> vertex_to_coinciding_vertex_group;
 
   auto v_to_c = GridTools::vertex_to_cell_map(triangulation);
   GridTools::collect_coinciding_vertices(triangulation,
                                          coinciding_vertex_groups,
                                          vertex_to_coinciding_vertex_group);
+
+  std::set<unsigned int> explored_vertices;
   for (const auto &cell : cell_iterator)
     {
       if (cell->is_locally_owned() || cell->is_ghost())
@@ -72,8 +76,20 @@ LetheGridTools::vertices_cell_mapping_with_periodic_boundaries(
             GeometryInfo<dim>::vertices_per_cell;
           for (unsigned int i = 0; i < vertices_per_cell; i++)
             {
-              // First obtain vertex index
+              // Current vertex index
               unsigned int v_index = cell->vertex_index(i);
+
+              // Check if the vertex has not already been explored and continue
+              // to the next vertex of the current cell, meaning the
+              // periodic neighbor cells has been already mapped with the vertex
+              if (explored_vertices.find(v_index) != explored_vertices.end())
+                continue;
+
+              explored_vertices.insert(v_index);
+
+              // Set of neighbor cells at periodic vertex
+              std::set<typename DoFHandler<dim>::active_cell_iterator>
+                periodic_neighbor_cells;
 
               // Check if vertex is at periodic boundary, should be a key if so
               if (vertex_to_coinciding_vertex_group.find(v_index) !=
@@ -87,7 +103,7 @@ LetheGridTools::vertices_cell_mapping_with_periodic_boundaries(
                   for (auto coinciding_vertex :
                        coinciding_vertex_groups.at(coinciding_vertex_key))
                     {
-                      // Skip the current vertex since we want only cells linked
+                      // Skip the current vertex since we only want cells linked
                       // to the periodic vertices
                       if (coinciding_vertex != v_index)
                         {
@@ -95,17 +111,25 @@ LetheGridTools::vertices_cell_mapping_with_periodic_boundaries(
                           for (const auto &neighbor_id :
                                v_to_c[coinciding_vertex])
                             {
+                              // Get the neighbor cell iterator as DofHandler
+                              // iterator since the map gives the triangulation
+                              // iterator
                               typename DoFHandler<dim>::active_cell_iterator
                                 neighbor_cell(&(triangulation),
                                               neighbor_id->level(),
                                               neighbor_id->index(),
                                               &dof_handler);
 
-                              vertices_cell_map[v_index].insert(neighbor_cell);
+                              // Insert the cell into the set for this vertex
+                              periodic_neighbor_cells.insert(neighbor_cell);
                             }
                         }
                     }
                 }
+              // Insert the set of periodic neighbor cells into the map after
+              // search for this vertex is done. If the vertex is not at a
+              // periodic boundary, the set will be empty
+              vertices_cell_map.insert({v_index, periodic_neighbor_cells});
             }
         }
     }

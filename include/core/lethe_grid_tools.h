@@ -37,7 +37,7 @@ namespace LetheGridTools
    *
    * @param dof_handler DofHandler of the triangulation on which to create the map
    *
-   * @param vertices_cell_map Object to which the data will be written
+   * @param vertices_cell_map The map of vertex ids to the set of neighbor cells
    */
 
   template <int dim>
@@ -50,11 +50,13 @@ namespace LetheGridTools
 
   /**
    * @brief
-   * Map the vertex index to the cells that includes that vertex.
+   * Map the vertex index to the cells on periodic boundaries that includes the
+   * periodic coinciding vertex.
    *
    * @param dof_handler DofHandler of the triangulation on which to create the map
    *
-   * @param vertices_cell_map Object to which the data will be written
+   * @param vertices_cell_map The map of vertex ids at periodic boundary to the
+   * set of periodic neighbor cells
    */
 
   template <int dim>
