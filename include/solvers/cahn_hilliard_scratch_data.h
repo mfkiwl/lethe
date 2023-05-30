@@ -160,6 +160,10 @@ public:
          const std::vector<VectorType> &solution_stages,
          Function<dim> *                source_function)
   {
+
+    this->phase_order.component = 0;
+    this->chemical_potential.component = 1;
+
     this->fe_values_ch.reinit(cell);
 
     quadrature_points = this->fe_values_ch.get_quadrature_points();
@@ -173,6 +177,8 @@ public:
     else if (dim == 3)
       this->cell_size =
         pow(6 * cell->measure() / M_PI, 1. / 3.) / fe_ch.degree;
+
+
 
     // Gather Phi and eta (values, gradient and laplacian)
     this->fe_values_ch[phase_order].get_function_values(current_solution,
@@ -261,11 +267,8 @@ public:
   PhysicalPropertiesManager            properties_manager;
   std::map<field, std::vector<double>> fields;
 
-
-
-
-
-
+  FEValuesExtractors::Scalar phase_order;
+  FEValuesExtractors::Scalar chemical_potential;
 
 
   // FEValues for the Cahn-Hilliard problem
@@ -273,8 +276,6 @@ public:
   unsigned int  n_dofs;
   unsigned int  n_q_points;
   double        cell_size;
-  FEValuesExtractors::Scalar phase_order;
-  FEValuesExtractors::Scalar chemical_potential;
 
   // Quadrature
   std::vector<double>     JxW;

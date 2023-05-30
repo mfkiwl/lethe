@@ -764,7 +764,7 @@ namespace BoundaryConditions
   public:
 
     std::vector<double> angle_of_contact;
-    std::vector<std::shared_ptr<Functions::ParsedFunction<dim>>> dirichlet_value;
+    std::vector<double> dirichlet_value;
 
 
     void
@@ -806,11 +806,16 @@ namespace BoundaryConditions
                       Patterns::Double(),
                       "Angle of contact between the fluid 1 and the wall (in degrees)");
 
-    prm.enter_subsection("dirichlet_phase_order");
-    dirichlet_value[i_bc] = std::make_shared<Functions::ParsedFunction<dim>>();
-    dirichlet_value[i_bc]->declare_parameters(prm);
-    prm.set("Function expression", "0");
-    prm.leave_subsection();
+    prm.declare_entry("phase value",
+                      "0",
+                      Patterns::Double(),
+                      "Dirichlet value for the phase order");
+
+
+//    prm.enter_subsection("dirichlet_phase_order");
+//    dirichlet_value[i_bc]->declare_parameters(prm);
+//    prm.set("Function expression", "0");
+//    prm.leave_subsection();
 
     return;
   }
@@ -869,9 +874,7 @@ namespace BoundaryConditions
     if (op == "dirichlet_phase_order")
       {
         this->type[i_bc] = BoundaryType::dirichlet_phase_order;
-        prm.enter_subsection("dirichlet_phase_order");
-        dirichlet_value[i_bc]->parse_parameters(prm);
-        prm.leave_subsection();
+        this->dirichlet_value[i_bc] = prm.get_double("phase value");
       }
     if (op == "angle_of_contact")
       {

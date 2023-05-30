@@ -220,7 +220,13 @@ void
 CahnHilliard<dim>::copy_local_rhs_to_global_rhs(
   const StabilizedMethodsTensorCopyData<2> &copy_data)
 {
-  return;
+  if (!copy_data.cell_is_local)
+    return;
+
+  const AffineConstraints<double> &constraints_used = this->zero_constraints;
+  constraints_used.distribute_local_to_global(copy_data.local_rhs,
+                                              copy_data.local_dof_indices,
+                                              this->system_rhs);
 }
 
 template <int dim>
@@ -451,8 +457,46 @@ CahnHilliard<dim>::setup_dofs()
     nonzero_constraints.clear();
     DoFTools::make_hanging_node_constraints(this->dof_handler,
                                             nonzero_constraints);
+    for (unsigned int i_bc = 0;
+         i_bc < this->simulation_parameters.boundary_conditions_cahn_hilliard.size;
+         ++i_bc)
+      {
+        // Dirichlet condition : imposed temperature at i_bc
+        if (this->simulation_parameters.boundary_conditions_cahn_hilliard.type[i_bc] ==
+            BoundaryConditions::BoundaryType::dirichlet_phase_order)
+          {
+            VectorTools::interpolate_boundary_values(
+              this->dof_handler,
+              this->simulation_parameters.boundary_conditions_cahn_hilliard.id[i_bc],
+              dealii::Functions::ConstantFunction<dim>(
+                this->simulation_parameters.boundary_conditions_cahn_hilliard.dirichlet_value[i_bc],2),
+              nonzero_constraints);
+          }
+      }
   }
   nonzero_constraints.close();
+
+  // Boundary conditions for Newton correction
+  {
+    zero_constraints.clear();
+    DoFTools::make_hanging_node_constraints(this->dof_handler,
+                                            zero_constraints);
+
+    for (unsigned int i_bc = 0;
+         i_bc < this->simulation_parameters.boundary_conditions_cahn_hilliard.size;
+         ++i_bc)
+      {
+        if (this->simulation_parameters.boundary_conditions_cahn_hilliard.type[i_bc] ==
+            BoundaryConditions::BoundaryType::dirichlet_phase_order)
+          {
+            VectorTools::interpolate_boundary_values(
+              this->dof_handler,
+              this->simulation_parameters.boundary_conditions_cahn_hilliard.id[i_bc],
+              Functions::ZeroFunction<dim>(2),
+              zero_constraints);
+          }
+      }
+  }
 
   zero_constraints.close();
 
@@ -474,6 +518,7 @@ CahnHilliard<dim>::setup_dofs()
 
   this->pcout << "   Number of Cahn-Hilliard degrees of freedom: "
               << dof_handler.n_dofs() << std::endl;
+
 
   // Provide the cahn_hilliard dof_handler and present solution pointers to the
   // multiphysics interface
