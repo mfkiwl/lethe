@@ -13,12 +13,12 @@ CahnHilliardAssemblerCore<dim>::assemble_matrix(
 {
   // Gather physical properties
 
-    double W        = scratch_data.W;
-    double epsilon  = scratch_data.epsilon;
+    std::vector<double> &well_height_vector       = scratch_data.well_height;
+    std::vector<double> &epsilon_vector  = scratch_data.epsilon;
     std::vector<double> &mobility_vector = scratch_data.mobility;
 
-    std::cout<<"W = "<<W<<std::endl;
-    std::cout<<"epsilon = "<<epsilon<<std::endl;
+    std::cout<<"well_height = "<<well_height_vector[0]<<std::endl;
+    std::cout<<"epsilon = "<<epsilon_vector[0]<<std::endl;
     std::cout<<"mobility = "<< mobility_vector[0] <<std::endl;
 
 
@@ -40,6 +40,8 @@ CahnHilliardAssemblerCore<dim>::assemble_matrix(
       // Store JxW in local variable for faster access;
       const double JxW = JxW_vec[q];
       const double mobility = mobility_vector[q];
+      const double well_height = well_height_vector[q];
+      const double epsilon = epsilon_vector[q];
 
       for (unsigned int i = 0; i < n_dofs; ++i)
         {
@@ -68,7 +70,7 @@ CahnHilliardAssemblerCore<dim>::assemble_matrix(
                    phi_phase_i // First equation
                  + mobility * grad_phi_phase_i * grad_phi_potential_j +
                  phi_potential_i * phi_potential_j -
-                 4 * W * phi_potential_i *
+                 4 * well_height * phi_potential_i *
                    (3 * phase_order_value * phase_order_value * phi_phase_j -
                     phi_phase_j) -
                  epsilon * epsilon * grad_phi_potential_i *
@@ -100,13 +102,13 @@ CahnHilliardAssemblerCore<dim>::assemble_rhs(
 {
   // Gather physical properties
 
-    double W        = scratch_data.W;
-    double epsilon  = scratch_data.epsilon;
+  std::vector<double> &well_height_vector       = scratch_data.well_height;
+  std::vector<double> &epsilon_vector  = scratch_data.epsilon;
   std::vector<double> &mobility_vector = scratch_data.mobility;
 
-  std::cout<<"W = "<<W<<std::endl;
-  std::cout<<"epsilon = "<<epsilon<<std::endl;
-  std::cout<<"mobility = "<< mobility_vector[0] << std::endl;
+  std::cout<<"W = "<<well_height_vector[0]<<std::endl;
+  std::cout<<"epsilon = "<<epsilon_vector[0]<<std::endl;
+  std::cout<<"mobility = "<< mobility_vector[0] <<std::endl;
 
   // Loop and quadrature informations
   const auto &       JxW_vec    = scratch_data.JxW;
@@ -133,6 +135,8 @@ CahnHilliardAssemblerCore<dim>::assemble_rhs(
         scratch_data.chemical_potential_gradients[q];
 
       const double mobility = mobility_vector[q];
+      const double well_height = well_height_vector[q];
+      const double epsilon = epsilon_vector[q];
 
       for (unsigned int i = 0; i < n_dofs; ++i)
         {
@@ -148,7 +152,7 @@ CahnHilliardAssemblerCore<dim>::assemble_rhs(
                phi_phase_i // First equation
              + mobility * grad_phi_phase_i * potential_gradient +
              phi_potential_i * potential_value -
-             4 * W * phi_potential_i *
+             4 * well_height * phi_potential_i *
                (phase_order_value * phase_order_value * phase_order_value -
                 phase_order_value) -
              epsilon * epsilon * grad_phi_potential_i * phase_order_gradient) *

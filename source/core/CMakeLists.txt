@@ -69,7 +69,7 @@ add_library(lethe-core
   ../../include/core/time_integration_utilities.h
   ../../include/core/tracer_diffusivity_model.h
   ../../include/core/exceptions.h
-  ../../include/core/utilities.h ../../include/core/mobility_ch_model.h mobility_model.cc)
+  ../../include/core/utilities.h ../../include/core/mobility_ch_model.h mobility_model.cc ../../include/core/epsilon_model.h ../../include/core/well_height_model.h epsilon_model.cc well_height_model.cc)
 
 deal_ii_setup_target(lethe-core)
 target_include_directories(lethe-core PUBLIC ../../include)

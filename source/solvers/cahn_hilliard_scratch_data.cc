@@ -74,10 +74,12 @@ void
 CahnHilliardScratchData<dim>::calculate_physical_properties()
 {
   const auto mobility_model = properties_manager.get_mobility();
-  well_height = properties_manager.get_ch_well_height();
-  epsilon = properties_manager.get_ch_epsilon();
+  const auto well_height_model = properties_manager.get_well_height();
+  const auto epsilon_model = properties_manager.get_epsilon();
 
   mobility_model->vector_value(fields, mobility);
+  well_height_model->vector_value(fields, well_height);
+  epsilon_model->vector_value(fields, epsilon);
 
   // TODO ADD : Blend the physical properties using the CH field (Cf heat transfer)
 
@@ -130,10 +132,6 @@ CahnHilliardScratchData<dim>::calculate_physical_properties()
   else
     {
       const auto density_model = properties_manager.get_density(0, material_id);
-      const auto specific_heat_model =
-        properties_manager.get_specific_heat(0, material_id);
-      const auto thermal_conductivity_model =
-        properties_manager.get_thermal_conductivity(0, material_id);
       const auto rheology_model =
         properties_manager.get_rheology(0, material_id);
 

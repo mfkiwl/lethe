@@ -111,6 +111,8 @@ CahnHilliard<dim>::assemble_local_system_matrix(
         velocity_cell, *multiphysics->get_solution(PhysicsID::fluid_dynamics));
     }
 
+  scratch_data.calculate_physical_properties();
+
   copy_data.reset();
 
   for (auto &assembler : this->assemblers)
@@ -206,6 +208,7 @@ CahnHilliard<dim>::assemble_local_system_rhs(
     }
 
 
+  scratch_data.calculate_physical_properties();
   copy_data.reset();
 
   for (auto &assembler : this->assemblers)

@@ -26,6 +26,8 @@
 #include <core/thermal_expansion_model.h>
 #include <core/tracer_diffusivity_model.h>
 #include <core/mobility_ch_model.h>
+#include <core/well_height_model.h>
+#include <core/epsilon_model.h>
 
 using namespace dealii;
 
@@ -152,6 +154,20 @@ public:
     return mobility[calculate_global_id(fluid_id, material_id)];
   }
 
+  std::shared_ptr<WellHeightModel>
+  get_well_height(const unsigned int fluid_id    = 0,
+               const unsigned int material_id = 0) const
+  {
+    return well_height[calculate_global_id(fluid_id, material_id)];
+  }
+
+  std::shared_ptr<EpsilonModel>
+  get_epsilon(const unsigned int fluid_id    = 0,
+                  const unsigned int material_id = 0) const
+  {
+    return epsilon[calculate_global_id(fluid_id, material_id)];
+  }
+
   // Vector Getters for the physical property models
   std::vector<std::shared_ptr<DensityModel>>
   get_density_vector() const
@@ -205,18 +221,6 @@ public:
   get_density_scale() const
   {
     return density_scale;
-  }
-
-  double
-  get_ch_well_height() const
-  {
-    return well_height;
-  }
-
-  double
-  get_ch_epsilon() const
-  {
-    return epsilon;
   }
 
   void
@@ -280,6 +284,8 @@ private:
   std::vector<std::shared_ptr<ThermalExpansionModel>>    thermal_expansion;
   std::vector<std::shared_ptr<TracerDiffusivityModel>>   tracer_diffusivity;
   std::vector<std::shared_ptr<MobilityModel>>            mobility;
+  std::vector<std::shared_ptr<WellHeightModel>>            well_height;
+  std::vector<std::shared_ptr<EpsilonModel>>            epsilon;
 
   std::map<field, bool> required_fields;
 
@@ -290,8 +296,6 @@ private:
   // be deprecated for the majority of places they are used.
   double viscosity_scale;
   double density_scale;
-  double epsilon;
-  double well_height;
 
   unsigned int number_of_fluids;
   unsigned int number_of_solids;

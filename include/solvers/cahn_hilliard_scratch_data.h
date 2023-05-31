@@ -271,8 +271,8 @@ public:
   PhysicalPropertiesManager            properties_manager;
   std::map<field, std::vector<double>> fields;
   dealii::types::material_id           material_id;
-  double                               well_height;
-  double                               epsilon;
+  std::vector<double>                  well_height;
+  std::vector<double>                  epsilon;
   std::vector<double>                  mobility;
   std::vector<double>                  density;
   std::vector<double>                  viscosity;
