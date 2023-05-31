@@ -313,6 +313,13 @@ namespace Parameters
     double thermal_expansion;
     // tracer diffusivity in L^2/s
     double tracer_diffusivity;
+    // potential well height in J
+    double well_height;
+    // mobility constant in m^2/s/J
+    double mobility;
+    // interface thickness related parameter in J^(0.5)*m
+    double epsilon;
+
 
     // Phase change parameters
     PhaseChange phase_change_parameters;
@@ -350,6 +357,13 @@ namespace Parameters
       constant,
       phase_change
     } thermal_expansion_model;
+
+    enum class MobilityModel
+    {
+      constant,
+      quadratic,
+      quartic
+    } mobility_model;
 
     // Linear thermal conductivity parameters : k = k_A0 + k_A1 * T
     double k_A0;
@@ -700,7 +714,8 @@ namespace Parameters
     unsigned int VOF_order;
 
     // Interpolation order Cahn-Hilliard
-    unsigned int cahn_hilliard_order;
+    unsigned int phase_ch_order;
+    unsigned int potential_order;
 
     // Apply high order mapping everywhere
     bool qmapping_all;

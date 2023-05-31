@@ -16,8 +16,8 @@
 
 #include <core/simulation_control.h>
 
-#include <solvers/copy_data.h>
 #include <solvers/cahn_hilliard_scratch_data.h>
+#include <solvers/copy_data.h>
 
 
 #ifndef lethe_cahn_hilliard_assemblers_h
@@ -45,8 +45,8 @@ public:
    */
 
   virtual void
-  assemble_matrix(CahnHilliardScratchData<dim> &   scratch_data,
-                  StabilizedMethodsCopyData &copy_data) = 0;
+  assemble_matrix(CahnHilliardScratchData<dim> &scratch_data,
+                  StabilizedMethodsCopyData &   copy_data) = 0;
 
 
   /**
@@ -59,15 +59,15 @@ public:
    */
 
   virtual void
-  assemble_rhs(CahnHilliardScratchData<dim> &   scratch_data,
-               StabilizedMethodsCopyData &copy_data) = 0;
+  assemble_rhs(CahnHilliardScratchData<dim> &scratch_data,
+               StabilizedMethodsCopyData &   copy_data) = 0;
 };
 
 
 /**
  * @brief Class that assembles the core of the Cahn-Hilliard equation.
  * This class assembles the weak form of:
- * dPhi/dt +  u * gradPhi =  div(M(Phi)*grad eta);
+ * dPhi/dt +  u * gradPhi =  div(M(Phi)*grad eta)
  * eta - f(Phi) + epsilon^2 * div(grad Phi) = 0
  * with an SUPG stabilization
  *
@@ -81,7 +81,8 @@ template <int dim>
 class CahnHilliardAssemblerCore : public CahnHilliardAssemblerBase<dim>
 {
 public:
-  CahnHilliardAssemblerCore(std::shared_ptr<SimulationControl> simulation_control)
+  CahnHilliardAssemblerCore(
+    std::shared_ptr<SimulationControl> simulation_control)
     : simulation_control(simulation_control)
   {}
 
@@ -91,8 +92,8 @@ public:
    * @param copy_data (see base class)
    */
   virtual void
-  assemble_matrix(CahnHilliardScratchData<dim> &   scratch_data,
-                  StabilizedMethodsCopyData &copy_data) override;
+  assemble_matrix(CahnHilliardScratchData<dim> &scratch_data,
+                  StabilizedMethodsCopyData &   copy_data) override;
 
 
   /**
@@ -101,8 +102,8 @@ public:
    * @param copy_data (see base class)
    */
   virtual void
-  assemble_rhs(CahnHilliardScratchData<dim> &   scratch_data,
-               StabilizedMethodsCopyData &copy_data) override;
+  assemble_rhs(CahnHilliardScratchData<dim> &scratch_data,
+               StabilizedMethodsCopyData &   copy_data) override;
 
 
   std::shared_ptr<SimulationControl> simulation_control;
@@ -122,7 +123,8 @@ template <int dim>
 class CahnHilliardAssemblerBDF : public CahnHilliardAssemblerBase<dim>
 {
 public:
-  CahnHilliardAssemblerBDF(std::shared_ptr<SimulationControl> simulation_control)
+  CahnHilliardAssemblerBDF(
+    std::shared_ptr<SimulationControl> simulation_control)
     : simulation_control(simulation_control)
   {}
 
@@ -133,8 +135,8 @@ public:
    */
 
   virtual void
-  assemble_matrix(CahnHilliardScratchData<dim> &   scratch_data,
-                  StabilizedMethodsCopyData &copy_data) override;
+  assemble_matrix(CahnHilliardScratchData<dim> &scratch_data,
+                  StabilizedMethodsCopyData &   copy_data) override;
 
   /**
    * @brief assemble_rhs Assembles the rhs
@@ -142,8 +144,8 @@ public:
    * @param copy_data (see base class)
    */
   virtual void
-  assemble_rhs(CahnHilliardScratchData<dim> &   scratch_data,
-               StabilizedMethodsCopyData &copy_data) override;
+  assemble_rhs(CahnHilliardScratchData<dim> &scratch_data,
+               StabilizedMethodsCopyData &   copy_data) override;
 
   std::shared_ptr<SimulationControl> simulation_control;
 };

@@ -628,6 +628,21 @@ namespace Parameters
         "Tracer diffusivity for the fluid corresponding to Phase = " +
           Utilities::int_to_string(id, 1));
 
+      prm.declare_entry("well height",
+                        "1",
+                        Patterns::Double(),
+                        "Potential height well for the Cahn-Hilliard equations");
+
+      prm.declare_entry("epsilon",
+                        "1",
+                        Patterns::Double(),
+                        "Interface thickness related parameter for the Cahn-Hilliard equations");
+
+      prm.declare_entry("mobility constant",
+                        "1",
+                        Patterns::Double(),
+                        "Mobility constant for the Cahn-Hilliard equations");
+
       prm.declare_entry(
         "rheological model",
         "newtonian",
@@ -675,6 +690,11 @@ namespace Parameters
                         "0",
                         Patterns::Double(),
                         "k_A1 parameter for linear conductivity model");
+
+      prm.declare_entry("mobility model",
+                        "constant",
+                        Patterns::Selection("constant|quadratic|quartic"),
+                        "Mobility model for the Cahn-Hilliard equations""Choices are <constant|quadratic|quartic>.");
     }
     prm.leave_subsection();
   }
@@ -793,6 +813,24 @@ namespace Parameters
       // Phase change properties
       //--------------------------------
       phase_change_parameters.parse_parameters(prm, dimensions);
+
+      //--------------------------------
+      // Cahn-Hilliard properties
+      //--------------------------------
+      // potential well height in J
+      well_height = prm.get_double("well height");
+      // interface thickness related parameter in J^(0.5)*m
+      epsilon = prm.get_double("epsilon");
+
+      op = prm.get("mobility model");
+      if (op == "constant")
+        mobility_model = MobilityModel::constant;
+      else if (op == "quadratic")
+        mobility_model = MobilityModel::quadratic;
+      else if (op == "quartic")
+        mobility_model = MobilityModel::quartic;
+
+
     }
     prm.leave_subsection();
   }
@@ -826,10 +864,16 @@ namespace Parameters
                         "1",
                         Patterns::Integer(),
                         "interpolation order tracer");
-      prm.declare_entry("cahn hilliard order",
-                        "1",
-                        Patterns::Integer(),
-                        "interpolation order cahn hilliard");
+      prm.declare_entry(
+        "phase ch order",
+        "1",
+        Patterns::Integer(),
+        "interpolation order phase parameter in the Cahn-Hilliard equations");
+      prm.declare_entry(
+        "potential ch order",
+        "1",
+        Patterns::Integer(),
+        "interpolation order chemical potential in the Cahn-Hilliard equations");
       prm.declare_entry("qmapping all",
                         "false",
                         Patterns::Bool(),
@@ -849,7 +893,8 @@ namespace Parameters
       temperature_order   = prm.get_integer("temperature order");
       tracer_order        = prm.get_integer("tracer order");
       VOF_order           = prm.get_integer("VOF order");
-      cahn_hilliard_order = prm.get_integer("cahn hilliard order");
+      phase_ch_order      = prm.get_integer("phase ch order");
+      potential_order     = prm.get_integer("potential ch order");
       qmapping_all        = prm.get_bool("qmapping all");
     }
     prm.leave_subsection();
