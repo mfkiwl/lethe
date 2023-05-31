@@ -21,7 +21,6 @@
  * with Phi the phase field parameter (or phase order), eta the chemical potential
  * M the mobility function and epsilon the interface thickness
  *
- * Author: Pierre Laurentin, Polytechnique Montreal, 2023-
  */
 
 #ifndef cahn_hilliard_h

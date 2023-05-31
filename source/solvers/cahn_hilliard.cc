@@ -177,14 +177,14 @@ CahnHilliard<dim>::assemble_local_system_rhs(
   if (!cell->is_locally_owned())
     return;
 
-//  auto &source_term = simulation_parameters.source_term->cahn_hilliard_source;
-//  source_term.set_time(simulation_control->get_current_time());
-//
-//  scratch_data.reinit(cell,
-//                      this->evaluation_point,
-//                      this->previous_solutions,
-//                      this->solution_stages,
-//                      &source_term);
+  auto &source_term = simulation_parameters.source_term->cahn_hilliard_source;
+  source_term.set_time(simulation_control->get_current_time());
+
+  scratch_data.reinit(cell,
+                      this->evaluation_point,
+                      this->previous_solutions,
+                      this->solution_stages,
+                      &source_term);
 
   const DoFHandler<dim> *dof_handler_fluid =
     multiphysics->get_dof_handler(PhysicsID::fluid_dynamics);
@@ -226,7 +226,7 @@ CahnHilliard<dim>::copy_local_rhs_to_global_rhs(
   const AffineConstraints<double> &constraints_used = this->zero_constraints;
   constraints_used.distribute_local_to_global(copy_data.local_rhs,
                                               copy_data.local_dof_indices,
-                                              this->system_rhs);
+                                              system_rhs);
 }
 
 template <int dim>
@@ -461,7 +461,7 @@ CahnHilliard<dim>::setup_dofs()
          i_bc < this->simulation_parameters.boundary_conditions_cahn_hilliard.size;
          ++i_bc)
       {
-        // Dirichlet condition : imposed temperature at i_bc
+        // Dirichlet condition : imposed phase_order at i_bc
         if (this->simulation_parameters.boundary_conditions_cahn_hilliard.type[i_bc] ==
             BoundaryConditions::BoundaryType::dirichlet_phase_order)
           {
@@ -535,19 +535,19 @@ CahnHilliard<dim>::set_initial_conditions()
   const FEValuesExtractors::Scalar phase_order(0);
   const FEValuesExtractors::Scalar potential(1);
 
-  VectorTools::interpolate(*this->mapping,
-                           this->dof_handler,
-                           this->simulation_parameters.initial_condition->cahn_hilliard,
-                           this->newton_update,
-                           this->fe->component_mask(phase_order));
+  VectorTools::interpolate(*mapping,
+                           dof_handler,
+                           simulation_parameters.initial_condition->cahn_hilliard,
+                           newton_update,
+                           fe->component_mask(phase_order));
 
   //Set the initial chemical potential to 0. (May be discussed or modified
   //later)
-  VectorTools::interpolate(*this->mapping,
-                           this->dof_handler,
-                           this->simulation_parameters.initial_condition->cahn_hilliard,
-                           this->newton_update,
-                           this->fe->component_mask(potential));
+  VectorTools::interpolate(*mapping,
+                           dof_handler,
+                           simulation_parameters.initial_condition->cahn_hilliard,
+                           newton_update,
+                           fe->component_mask(potential));
 
   nonzero_constraints.distribute(newton_update);
   present_solution = newton_update;
