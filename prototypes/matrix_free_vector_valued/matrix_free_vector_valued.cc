@@ -26,6 +26,7 @@
 #include <deal.II/dofs/dof_tools.h>
 
 #include <deal.II/fe/fe_q.h>
+#include <deal.II/fe/fe_system.h>
 #include <deal.II/fe/mapping_q.h>
 
 #include <deal.II/grid/grid_generator.h>
@@ -82,10 +83,7 @@ struct Settings
 
   enum GeometryType
   {
-    hyperball,
-    hypercube,
-    hypercube_with_hole,
-    hyperrectangle
+    hypercube
   };
 
   enum SourceTermType
@@ -94,26 +92,16 @@ struct Settings
     mms
   };
 
-  enum ProblemType
-  {
-    boundary_layer,
-    double_glazing,
-    boundary_layer_with_hole
-  };
-
   PreconditionerType preconditioner;
   GeometryType       geometry;
   SourceTermType     source_term;
-  ProblemType        problem_type;
 
   int          dimension;
-  unsigned int velocity_order;
-  unsigned int pressure_order;
+  unsigned int u_order;
+  unsigned int p_order;
   unsigned int number_of_cycles;
   unsigned int initial_refinement;
   unsigned int repetitions;
-  double       peclet_number;
-  bool         stabilization;
   bool         nonlinearity;
   bool         output;
   std::string  output_name;
@@ -128,24 +116,22 @@ Settings::try_parse(const std::string &prm_filename)
                     "2",
                     Patterns::Integer(),
                     "The problem dimension <2|3>");
-  prm.declare_entry("velocity order",
+  prm.declare_entry("u order",
                     "1",
                     Patterns::Integer(),
-                    "Order of FE element for the velocity <1|2|3>");
-  prm.declare_entry("pressure order",
+                    "Order of FE element for the u <1|2|3>");
+  prm.declare_entry("p order",
                     "1",
                     Patterns::Integer(),
-                    "Order of FE element for the pressure <1|2|3>");
+                    "Order of FE element for the p <1|2|3>");
   prm.declare_entry("number of cycles",
                     "1",
                     Patterns::Integer(),
                     "Number of cycles <1 up to 9-dim >");
-  prm.declare_entry(
-    "geometry",
-    "hyperball",
-    Patterns::Selection(
-      "hyperball|hypercube|hypercube with hole|hyperrectangle"),
-    "Geometry <hyperball|hypercube|hypercube with hole|hyperrectangle>");
+  prm.declare_entry("geometry",
+                    "hypercube",
+                    Patterns::Selection("hypercube"),
+                    "Geometry <hypercube>");
   prm.declare_entry("initial refinement",
                     "1",
                     Patterns::Integer(),
@@ -154,11 +140,6 @@ Settings::try_parse(const std::string &prm_filename)
                     "1",
                     Patterns::Integer(),
                     "Repetitions in one direction for the hyperrectangle");
-  prm.declare_entry("peclet number", "10", Patterns::Double(), "Peclet number");
-  prm.declare_entry("stabilization",
-                    "false",
-                    Patterns::Bool(),
-                    "Enable stabilization <true|false>");
   prm.declare_entry("nonlinearity",
                     "false",
                     Patterns::Bool(),
@@ -183,12 +164,6 @@ Settings::try_parse(const std::string &prm_filename)
                     "zero",
                     Patterns::Selection("zero|mms"),
                     "Source term <zero|mms>");
-  prm.declare_entry(
-    "problem type",
-    "boundary layer",
-    Patterns::Selection(
-      "boundary layer|double glazing|boundary layer with hole"),
-    "Problem type <boundary layer|double glazing|boundary layer with hole>");
 
   if (prm_filename.size() == 0)
     {
@@ -224,14 +199,8 @@ Settings::try_parse(const std::string &prm_filename)
   else
     AssertThrow(false, ExcNotImplemented());
 
-  if (prm.get("geometry") == "hyperball")
-    this->geometry = hyperball;
-  else if (prm.get("geometry") == "hypercube")
+  if (prm.get("geometry") == "hypercube")
     this->geometry = hypercube;
-  else if (prm.get("geometry") == "hypercube with hole")
-    this->geometry = hypercube_with_hole;
-  else if (prm.get("geometry") == "hyperrectangle")
-    this->geometry = hyperrectangle;
   else
     AssertThrow(false, ExcNotImplemented());
 
@@ -242,23 +211,12 @@ Settings::try_parse(const std::string &prm_filename)
   else
     AssertThrow(false, ExcNotImplemented());
 
-  if (prm.get("problem type") == "boundary layer")
-    this->problem_type = boundary_layer;
-  else if (prm.get("problem type") == "double glazing")
-    this->problem_type = double_glazing;
-  else if (prm.get("problem type") == "boundary layer with hole")
-    this->problem_type = boundary_layer_with_hole;
-  else
-    AssertThrow(false, ExcNotImplemented());
-
   this->dimension          = prm.get_integer("dim");
-  this->velocity_order     = prm.get_integer("velocity order");
-  this->pressure_order     = prm.get_integer("pressure order");
+  this->u_order            = prm.get_integer("u order");
+  this->p_order            = prm.get_integer("p order");
   this->number_of_cycles   = prm.get_integer("number of cycles");
   this->initial_refinement = prm.get_integer("initial refinement");
   this->repetitions        = prm.get_integer("repetitions");
-  this->peclet_number      = prm.get_double("peclet number");
-  this->stabilization      = prm.get_bool("stabilization");
   this->nonlinearity       = prm.get_bool("nonlinearity");
   this->output             = prm.get_bool("output");
   this->output_name        = prm.get("output name");
@@ -290,8 +248,7 @@ template <int dim>
 class AnalyticalSolution : public Function<dim>
 {
 public:
-  AnalyticalSolution(double peclet)
-    : Pe(peclet)
+  AnalyticalSolution()
   {}
 
   virtual double
@@ -300,23 +257,17 @@ public:
   {
     if (dim == 2)
       {
-        double eps = 1 / Pe;
-        return p[0] *
-               ((1 - std::exp((p[1] - 1) / eps)) / (1 - std::exp(-2 / eps)));
+        return p[0];
       }
     return 0;
   }
-
-private:
-  double Pe;
 };
 
 template <int dim>
 class AdvectionField : public Function<dim>
 {
 public:
-  AdvectionField(const Settings::ProblemType &test_case)
-    : test_case(test_case)
+  AdvectionField()
   {}
 
   virtual double
@@ -325,54 +276,21 @@ public:
   template <typename number>
   number
   value(const Point<dim, number> &p, const unsigned int component = 0) const;
-
-private:
-  Settings::ProblemType test_case;
 };
 
 template <int dim>
 template <typename number>
 number
-AdvectionField<dim>::value(const Point<dim, number> &p,
-                           const unsigned int        component) const
+AdvectionField<dim>::value(const Point<dim, number> & /* p */,
+                           const unsigned int component) const
 {
   number result;
-  if (test_case == Settings::boundary_layer)
-    {
-      if (component == 0)
-        result = 0.0;
-      else if (component == 1)
-        result = 1.0;
-      else
-        result = 0.0;
-    }
-  else if (test_case == Settings::double_glazing)
-    {
-      if (component == 0)
-        result = 2 * p[1] * (1 - p[0] * p[0]);
-      else if (component == 1)
-        result = -2 * p[0] * (1 - p[1] * p[1]);
-      else
-        result = 0.0;
-    }
-  else if (test_case == Settings::boundary_layer_with_hole)
-    {
-      if (component == 0)
-        result = -std::sin(numbers::PI / 6);
-      else if (component == 1)
-        result = std::cos(numbers::PI / 6);
-      else
-        result = 0.0;
-    }
+  if (component == 0)
+    result = 1.0;
+  else if (component == 1)
+    result = 0.0;
   else
-    {
-      if (component == 0)
-        result = 1.0;
-      else if (component == 1)
-        result = 0.0;
-      else
-        result = 0.0;
-    }
+    result = 0.0;
   return result;
 }
 
@@ -395,51 +313,6 @@ public:
     return p[0];
   }
 };
-
-// For hypercube with hole case
-template <int dim>
-class BoundaryValues : public Function<dim>
-{
-public:
-  virtual double
-  value(const Point<dim> &p, const unsigned int component = 0) const override;
-
-  virtual void
-  value_list(const std::vector<Point<dim>> &points,
-             std::vector<double> &          values,
-             const unsigned int             component = 0) const override;
-};
-
-template <int dim>
-double
-BoundaryValues<dim>::value(const Point<dim> & p,
-                           const unsigned int component) const
-{
-  Assert(component == 0, ExcIndexRange(component, 0, 1));
-  (void)component;
-
-  // Set boundary to 1 if $x=1$, or if $x>0.5$ and $y=-1$.
-  if (std::fabs(p[0] - 1) < 1e-8 || (std::fabs(p[1] + 1) < 1e-8 && p[0] >= 0.5))
-    {
-      return 1.0;
-    }
-  else
-    {
-      return 0.0;
-    }
-}
-
-template <int dim>
-void
-BoundaryValues<dim>::value_list(const std::vector<Point<dim>> &points,
-                                std::vector<double> &          values,
-                                const unsigned int             component) const
-{
-  AssertDimension(values.size(), points.size());
-
-  for (unsigned int i = 0; i < points.size(); ++i)
-    values[i] = BoundaryValues<dim>::value(points[i], component);
-}
 
 // Matrix-free helper function
 template <int dim, typename Number>
@@ -476,7 +349,7 @@ evaluate_function(const Function<dim> &                      function,
   return result;
 }
 
-// Matrix-free differential operator for an advection-diffusion problem
+// Matrix-free differential operator for a vector-valued problem
 template <int dim, typename number>
 class VectorValuedOperator
   : public MatrixFreeOperators::Base<dim,
@@ -485,9 +358,9 @@ class VectorValuedOperator
 public:
   using value_type = number;
 
-  using VelocityIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
+  using UIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
 
-  using PressureIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
+  using PIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
 
   VectorValuedOperator();
 
@@ -520,7 +393,7 @@ private:
               const std::pair<unsigned int, unsigned int> &cell_range) const;
 
   void
-  local_compute(VelocityIntegrator &integrator) const;
+  local_compute(UIntegrator &integrator) const;
 
   mutable TrilinosWrappers::SparseMatrix system_matrix;
   Settings                               parameters;
@@ -557,7 +430,7 @@ VectorValuedOperator<dim, number>::evaluate_newton_step(
   const LinearAlgebra::distributed::Vector<number> &newton_step)
 {
   const unsigned int n_cells = this->data->n_cell_batches();
-  VelocityIntegrator phi(*this->data);
+  UIntegrator        phi(*this->data);
 
   nonlinear_values.reinit(n_cells, phi.n_q_points);
 
@@ -585,9 +458,9 @@ VectorValuedOperator<dim, number>::local_apply(
   const LinearAlgebra::distributed::Vector<number> &src,
   const std::pair<unsigned int, unsigned int> &     cell_range) const
 {
-  VelocityIntegrator phi(data);
+  UIntegrator phi(data);
 
-  AdvectionField<dim> advection_field(parameters.problem_type);
+  AdvectionField<dim> advection_field;
 
   for (unsigned int cell = cell_range.first; cell < cell_range.second; ++cell)
     {
@@ -597,15 +470,8 @@ VectorValuedOperator<dim, number>::local_apply(
 
       phi.reinit(cell);
 
-      if (parameters.stabilization)
-        phi.gather_evaluate(src,
-                            EvaluationFlags::values |
-                              EvaluationFlags::gradients |
-                              EvaluationFlags::hessians);
-      else
-        phi.gather_evaluate(src,
-                            EvaluationFlags::values |
-                              EvaluationFlags::gradients);
+      phi.gather_evaluate(src,
+                          EvaluationFlags::values | EvaluationFlags::gradients);
 
       for (unsigned int q = 0; q < phi.n_q_points; ++q)
         {
@@ -615,60 +481,11 @@ VectorValuedOperator<dim, number>::local_apply(
           Tensor<1, dim, VectorizedArray<double>> advection_vector =
             evaluate_function<dim, double, dim>(advection_field, point_batch);
 
-          if (parameters.stabilization)
-            {
-              VectorizedArray<number> tau = VectorizedArray<number>(0.0);
-              std::array<number, VectorizedArray<number>::size()> h_k;
-              std::array<number, VectorizedArray<number>::size()> h;
 
-              for (auto lane = 0u;
-                   lane < data.n_active_entries_per_cell_batch(cell);
-                   lane++)
-                {
-                  h_k[lane] = data.get_cell_iterator(cell, lane)->measure();
-                }
-
-              VectorizedArray<double> advection_vector_norm =
-                advection_vector.norm();
-
-              for (unsigned int v = 0; v < VectorizedArray<number>::size(); ++v)
-                {
-                  if (dim == 2)
-                    {
-                      h[v] = std::sqrt(4. * h_k[v] / M_PI) /
-                             parameters.velocity_order;
-                    }
-                  else if (dim == 3)
-                    {
-                      h[v] = std::pow(6 * h_k[v] / M_PI, 1. / 3.) /
-                             parameters.velocity_order;
-                    }
-                  tau[v] = std::pow(
-                    std::pow(1 / (parameters.peclet_number * h[v] * h[v]), 2) +
-                      std::pow(2 * advection_vector_norm[v] / h[v], 2),
-                    -0.5);
-                }
-
-              phi.submit_value(advection_vector * phi.get_gradient(q) -
-                                 nonlinear_values(cell, q) * phi.get_value(q),
-                               q);
-              phi.submit_gradient(
-                1 / parameters.peclet_number * phi.get_gradient(q) +
-                  (((-1 / parameters.peclet_number * phi.get_laplacian(q)) +
-                    (advection_vector * phi.get_gradient(q)) -
-                    (nonlinear_values(cell, q) * phi.get_value(q))) *
-                   tau * advection_vector),
-                q);
-            }
-          else
-            {
-              phi.submit_value(advection_vector * phi.get_gradient(q) -
-                                 nonlinear_values(cell, q) * phi.get_value(q),
-                               q);
-              phi.submit_gradient(1 / parameters.peclet_number *
-                                    phi.get_gradient(q),
-                                  q);
-            }
+          phi.submit_value(advection_vector * phi.get_gradient(q) -
+                             nonlinear_values(cell, q) * phi.get_value(q),
+                           q);
+          phi.submit_gradient(phi.get_gradient(q), q);
         }
 
       phi.integrate_scatter(EvaluationFlags::values |
@@ -688,7 +505,7 @@ VectorValuedOperator<dim, number>::apply_add(
 
 template <int dim, typename number>
 void
-VectorValuedOperator<dim, number>::local_compute(VelocityIntegrator &phi) const
+VectorValuedOperator<dim, number>::local_compute(UIntegrator &phi) const
 {
   AssertDimension(nonlinear_values.size(0),
                   phi.get_matrix_free().n_cell_batches());
@@ -696,13 +513,9 @@ VectorValuedOperator<dim, number>::local_compute(VelocityIntegrator &phi) const
 
   const unsigned int cell = phi.get_current_cell_index();
 
-  if (parameters.stabilization)
-    phi.evaluate(EvaluationFlags::values | EvaluationFlags::gradients |
-                 EvaluationFlags::hessians);
-  else
-    phi.evaluate(EvaluationFlags::values | EvaluationFlags::gradients);
+  phi.evaluate(EvaluationFlags::values | EvaluationFlags::gradients);
 
-  AdvectionField<dim> advection_field(parameters.problem_type);
+  AdvectionField<dim> advection_field;
 
   for (unsigned int q = 0; q < phi.n_q_points; ++q)
     {
@@ -711,65 +524,10 @@ VectorValuedOperator<dim, number>::local_compute(VelocityIntegrator &phi) const
       Tensor<1, dim, VectorizedArray<double>> advection_vector =
         evaluate_function<dim, double, dim>(advection_field, point_batch);
 
-      if (parameters.stabilization)
-        {
-          VectorizedArray<number> tau = VectorizedArray<number>(0.0);
-          std::array<number, VectorizedArray<number>::size()> h_k;
-          std::array<number, VectorizedArray<number>::size()> h;
-
-
-          for (auto lane = 0u;
-               lane <
-               this->get_matrix_free()->n_active_entries_per_cell_batch(cell);
-               lane++)
-            {
-              h_k[lane] = this->get_matrix_free()
-                            ->get_cell_iterator(cell, lane)
-                            ->measure();
-            }
-          VectorizedArray<double> advection_vector_norm =
-            advection_vector.norm();
-
-          for (unsigned int v = 0; v < VectorizedArray<number>::size(); ++v)
-            {
-              if (dim == 2)
-                {
-                  h[v] =
-                    std::sqrt(4. * h_k[v] / M_PI) / parameters.velocity_order;
-                }
-              else if (dim == 3)
-                {
-                  h[v] = std::pow(6 * h_k[v] / M_PI, 1. / 3.) /
-                         parameters.velocity_order;
-                }
-
-              tau[v] =
-                std::pow(std::pow(1 / (parameters.peclet_number * h[v] * h[v]),
-                                  2) +
-                           std::pow(2 * advection_vector_norm[v] / h[v], 2),
-                         -0.5);
-            }
-
-          phi.submit_value(advection_vector * phi.get_gradient(q) -
-                             nonlinear_values(cell, q) * phi.get_value(q),
-                           q);
-          phi.submit_gradient(
-            1 / parameters.peclet_number * phi.get_gradient(q) +
-              (((-1 / parameters.peclet_number * phi.get_laplacian(q)) +
-                (advection_vector * phi.get_gradient(q) -
-                 (nonlinear_values(cell, q) * phi.get_value(q)))) *
-               tau * advection_vector),
-            q);
-        }
-      else
-        {
-          phi.submit_value(advection_vector * phi.get_gradient(q) -
-                             nonlinear_values(cell, q) * phi.get_value(q),
-                           q);
-          phi.submit_gradient(1 / parameters.peclet_number *
-                                phi.get_gradient(q),
-                              q);
-        }
+      phi.submit_value(advection_vector * phi.get_gradient(q) -
+                         nonlinear_values(cell, q) * phi.get_value(q),
+                       q);
+      phi.submit_gradient(phi.get_gradient(q), q);
     }
 
   phi.integrate(EvaluationFlags::values | EvaluationFlags::gradients);
@@ -894,9 +652,14 @@ private:
 
   Settings parameters;
 
-  const MappingQ<dim>       mapping;
-  FE_Q<dim>                 fe;
-  DoFHandler<dim>           dof_handler;
+  const MappingQ<dim> mapping;
+  FE_Q<dim>           fe;
+  FE_Q<dim>           fe_q;
+  FESystem<dim>       fe_system;
+  DoFHandler<dim>     dof_handler;
+  DoFHandler<dim>     dof_handler_p;
+
+
   AffineConstraints<double> constraints;
   using SystemMatrixType = VectorValuedOperator<dim, double>;
   SystemMatrixType  system_matrix;
@@ -925,8 +688,10 @@ VectorValuedProblem<dim>::VectorValuedProblem(const Settings &parameters)
       Triangulation<dim>::limit_level_difference_at_vertices,
       parallel::distributed::Triangulation<dim>::construct_multigrid_hierarchy)
   , parameters(parameters)
-  , mapping(parameters.velocity_order)
-  , fe(parameters.velocity_order)
+  , mapping(parameters.u_order)
+  , fe(parameters.u_order)
+  , fe_q(parameters.p_order)
+  , fe_system(fe, dim, fe_q, 1)
   , dof_handler(triangulation)
   , pcout(std::cout, Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0)
   , computing_timer(MPI_COMM_WORLD,
@@ -943,51 +708,8 @@ VectorValuedProblem<dim>::make_grid()
 
   switch (parameters.geometry)
     {
-        case Settings::hyperball: {
-          SphericalManifold<dim>                boundary_manifold;
-          TransfiniteInterpolationManifold<dim> inner_manifold;
-
-          GridGenerator::hyper_ball(triangulation);
-
-          triangulation.set_all_manifold_ids(1);
-          triangulation.set_all_manifold_ids_on_boundary(0);
-
-          triangulation.set_manifold(0, boundary_manifold);
-
-          inner_manifold.initialize(triangulation);
-          triangulation.set_manifold(1, inner_manifold);
-
-          break;
-        }
         case Settings::hypercube: {
           GridGenerator::hyper_cube(triangulation, -1.0, 1.0, true);
-          break;
-        }
-        case Settings::hypercube_with_hole: {
-          GridGenerator::hyper_cube_with_cylindrical_hole(triangulation,
-                                                          0.3,
-                                                          1.0);
-
-          const SphericalManifold<dim> manifold_description(Point<dim>(0, 0));
-          triangulation.set_manifold(1, manifold_description);
-          break;
-        }
-        case Settings::hyperrectangle: {
-          std::vector<unsigned int> repetitions(dim);
-          for (unsigned int i = 0; i < dim - 1; i++)
-            {
-              repetitions[i] = 1;
-            }
-          repetitions[dim - 1] = parameters.repetitions;
-
-          GridGenerator::subdivided_hyper_rectangle(
-            triangulation,
-            repetitions,
-            (dim == 2) ? Point<dim>(-1., -1.) : Point<dim>(-1., -1., -1.),
-            // Point<dim>(),
-            (dim == 2) ? Point<dim>(1., parameters.repetitions) :
-                         Point<dim>(1., 1., parameters.repetitions),
-            true);
           break;
         }
     }
@@ -1015,66 +737,28 @@ VectorValuedProblem<dim>::setup_system()
   DoFTools::make_hanging_node_constraints(dof_handler, constraints);
 
   // Set homogeneous constraints for the matrix-free operator
-  if (parameters.problem_type == Settings::boundary_layer)
-    {
-      // Create zero BCs for the delta.
-      // Left wall
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               0,
-                                               Functions::ZeroFunction<dim>(),
-                                               constraints);
-      // Right wall
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               1,
-                                               Functions::ZeroFunction<dim>(),
-                                               constraints);
-      // Top wall
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               3,
-                                               Functions::ZeroFunction<dim>(),
-                                               constraints);
-      // Bottom wall
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               2,
-                                               Functions::ZeroFunction<dim>(),
-                                               constraints);
-    }
-  else if (parameters.problem_type == Settings::double_glazing)
-    {
-      // Left wall
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               0,
-                                               Functions::ZeroFunction<dim>(),
-                                               constraints);
-      // Right wall
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               1,
-                                               Functions::ZeroFunction<dim>(),
-                                               constraints);
-      // Top wall
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               3,
-                                               Functions::ZeroFunction<dim>(),
-                                               constraints);
-      // Bottom wall
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               2,
-                                               Functions::ZeroFunction<dim>(),
-                                               constraints);
-    }
-  else if (parameters.problem_type == Settings::boundary_layer_with_hole)
-    {
-      // Left wall
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               0,
-                                               Functions::ZeroFunction<dim>(),
-                                               constraints);
-      // Right wall
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               1,
-                                               Functions::ZeroFunction<dim>(),
-                                               constraints);
-    }
+  // Create zero BCs for the delta.
+  // Left wall
+  VectorTools::interpolate_boundary_values(dof_handler,
+                                           0,
+                                           Functions::ZeroFunction<dim>(),
+                                           constraints);
+  // Right wall
+  VectorTools::interpolate_boundary_values(dof_handler,
+                                           1,
+                                           Functions::ZeroFunction<dim>(),
+                                           constraints);
+  // Top wall
+  VectorTools::interpolate_boundary_values(dof_handler,
+                                           3,
+                                           Functions::ZeroFunction<dim>(),
+                                           constraints);
+  // Bottom wall
+  VectorTools::interpolate_boundary_values(dof_handler,
+                                           2,
+                                           Functions::ZeroFunction<dim>(),
+                                           constraints);
+
   constraints.close();
 
   {
@@ -1099,116 +783,48 @@ VectorValuedProblem<dim>::setup_system()
   system_matrix.initialize_dof_vector(system_rhs);
 
   // Change values of initial newton iteration
-  if (parameters.problem_type == Settings::boundary_layer)
-    {
-      // Set boundary values for the initial newton iteration
-      std::map<types::global_dof_index, double> boundary_values_left_wall;
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               0,
-                                               Functions::ConstantFunction<dim>(
-                                                 -1.0),
-                                               boundary_values_left_wall);
+  // Set boundary values for the initial newton iteration
+  std::map<types::global_dof_index, double> boundary_values_left_wall;
+  VectorTools::interpolate_boundary_values(dof_handler,
+                                           0,
+                                           Functions::ConstantFunction<dim>(
+                                             -1.0),
+                                           boundary_values_left_wall);
 
-      for (auto &boundary_value : boundary_values_left_wall)
-        if (solution.locally_owned_elements().is_element(boundary_value.first))
-          solution(boundary_value.first) = boundary_value.second;
+  for (auto &boundary_value : boundary_values_left_wall)
+    if (solution.locally_owned_elements().is_element(boundary_value.first))
+      solution(boundary_value.first) = boundary_value.second;
 
-      std::map<types::global_dof_index, double> boundary_values_right_wall;
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               1,
-                                               Functions::ConstantFunction<dim>(
-                                                 1.0),
-                                               boundary_values_right_wall);
+  std::map<types::global_dof_index, double> boundary_values_right_wall;
+  VectorTools::interpolate_boundary_values(dof_handler,
+                                           1,
+                                           Functions::ConstantFunction<dim>(
+                                             1.0),
+                                           boundary_values_right_wall);
 
-      for (auto &boundary_value : boundary_values_right_wall)
-        if (solution.locally_owned_elements().is_element(boundary_value.first))
-          solution(boundary_value.first) = boundary_value.second;
+  for (auto &boundary_value : boundary_values_right_wall)
+    if (solution.locally_owned_elements().is_element(boundary_value.first))
+      solution(boundary_value.first) = boundary_value.second;
 
-      std::map<types::global_dof_index, double> boundary_values_top_wall;
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               3,
-                                               Functions::ZeroFunction<dim>(),
-                                               boundary_values_top_wall);
+  std::map<types::global_dof_index, double> boundary_values_top_wall;
+  VectorTools::interpolate_boundary_values(dof_handler,
+                                           3,
+                                           Functions::ZeroFunction<dim>(),
+                                           boundary_values_top_wall);
 
-      for (auto &boundary_value : boundary_values_top_wall)
-        if (solution.locally_owned_elements().is_element(boundary_value.first))
-          solution(boundary_value.first) = boundary_value.second;
+  for (auto &boundary_value : boundary_values_top_wall)
+    if (solution.locally_owned_elements().is_element(boundary_value.first))
+      solution(boundary_value.first) = boundary_value.second;
 
-      std::map<types::global_dof_index, double> boundary_values_bottom_wall;
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               2,
-                                               BoundaryFunction<dim>(),
-                                               boundary_values_bottom_wall);
+  std::map<types::global_dof_index, double> boundary_values_bottom_wall;
+  VectorTools::interpolate_boundary_values(dof_handler,
+                                           2,
+                                           BoundaryFunction<dim>(),
+                                           boundary_values_bottom_wall);
 
-      for (auto &boundary_value : boundary_values_bottom_wall)
-        if (solution.locally_owned_elements().is_element(boundary_value.first))
-          solution(boundary_value.first) = boundary_value.second;
-    }
-  else if (parameters.problem_type == Settings::double_glazing)
-    {
-      // Set boundary values for the initial newton iteration
-      std::map<types::global_dof_index, double> boundary_values_left_wall;
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               0,
-                                               Functions::ZeroFunction<dim>(),
-                                               boundary_values_left_wall);
-
-      for (auto &boundary_value : boundary_values_left_wall)
-        if (solution.locally_owned_elements().is_element(boundary_value.first))
-          solution(boundary_value.first) = boundary_value.second;
-
-      std::map<types::global_dof_index, double> boundary_values_right_wall;
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               1,
-                                               Functions::ConstantFunction<dim>(
-                                                 1.0),
-                                               boundary_values_right_wall);
-
-      for (auto &boundary_value : boundary_values_right_wall)
-        if (solution.locally_owned_elements().is_element(boundary_value.first))
-          solution(boundary_value.first) = boundary_value.second;
-
-      std::map<types::global_dof_index, double> boundary_values_top_wall;
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               3,
-                                               Functions::ZeroFunction<dim>(),
-                                               boundary_values_top_wall);
-
-      for (auto &boundary_value : boundary_values_top_wall)
-        if (solution.locally_owned_elements().is_element(boundary_value.first))
-          solution(boundary_value.first) = boundary_value.second;
-
-      std::map<types::global_dof_index, double> boundary_values_bottom_wall;
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               2,
-                                               Functions::ZeroFunction<dim>(),
-                                               boundary_values_bottom_wall);
-
-      for (auto &boundary_value : boundary_values_bottom_wall)
-        if (solution.locally_owned_elements().is_element(boundary_value.first))
-          solution(boundary_value.first) = boundary_value.second;
-    }
-  else if (parameters.problem_type == Settings::boundary_layer_with_hole)
-    {
-      // Set boundary values for the initial newton iteration
-      std::map<types::global_dof_index, double> boundary_values_left_wall;
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               0,
-                                               BoundaryValues<dim>(),
-                                               boundary_values_left_wall);
-      for (auto &boundary_value : boundary_values_left_wall)
-        if (solution.locally_owned_elements().is_element(boundary_value.first))
-          solution(boundary_value.first) = boundary_value.second;
-
-      std::map<types::global_dof_index, double> boundary_values_right_wall;
-      VectorTools::interpolate_boundary_values(dof_handler,
-                                               1,
-                                               BoundaryValues<dim>(),
-                                               boundary_values_right_wall);
-      for (auto &boundary_value : boundary_values_right_wall)
-        if (solution.locally_owned_elements().is_element(boundary_value.first))
-          solution(boundary_value.first) = boundary_value.second;
-    }
+  for (auto &boundary_value : boundary_values_bottom_wall)
+    if (solution.locally_owned_elements().is_element(boundary_value.first))
+      solution(boundary_value.first) = boundary_value.second;
 }
 
 template <int dim>
@@ -1300,7 +916,7 @@ VectorValuedProblem<dim>::local_evaluate_residual(
 {
   FEEvaluation<dim, -1, 0, 1, double> phi(data);
   SourceTerm<dim>                     source_term_function;
-  AdvectionField<dim>                 advection_field(parameters.problem_type);
+  AdvectionField<dim>                 advection_field;
 
   for (unsigned int cell = cell_range.first; cell < cell_range.second; ++cell)
     {
@@ -1308,11 +924,7 @@ VectorValuedProblem<dim>::local_evaluate_residual(
 
       phi.read_dof_values_plain(src);
 
-      if (parameters.stabilization)
-        phi.evaluate(EvaluationFlags::values | EvaluationFlags::gradients |
-                     EvaluationFlags::hessians);
-      else
-        phi.evaluate(EvaluationFlags::values | EvaluationFlags::gradients);
+      phi.evaluate(EvaluationFlags::values | EvaluationFlags::gradients);
 
       for (unsigned int q = 0; q < phi.n_q_points; ++q)
         {
@@ -1334,63 +946,11 @@ VectorValuedProblem<dim>::local_evaluate_residual(
             (parameters.nonlinearity ? 1e-01 * std::exp(phi.get_value(q)) :
                                        0.0);
 
-          if (parameters.stabilization)
-            {
-              VectorizedArray<double> tau = VectorizedArray<double>(0.0);
-              std::array<double, VectorizedArray<double>::size()> h_k;
-              std::array<double, VectorizedArray<double>::size()> h;
 
-              for (auto lane = 0u;
-                   lane < system_matrix.get_matrix_free()
-                            ->n_active_entries_per_cell_batch(cell);
-                   lane++)
-                {
-                  h_k[lane] = system_matrix.get_matrix_free()
-                                ->get_cell_iterator(cell, lane)
-                                ->measure();
-                }
-
-              VectorizedArray<double> advection_vector_norm =
-                advection_vector.norm();
-
-              for (unsigned int v = 0; v < VectorizedArray<double>::size(); ++v)
-                {
-                  if (dim == 2)
-                    {
-                      h[v] = std::sqrt(4. * h_k[v] / M_PI) /
-                             parameters.velocity_order;
-                    }
-                  else if (dim == 3)
-                    {
-                      h[v] = std::pow(6 * h_k[v] / M_PI, 1. / 3.) /
-                             parameters.velocity_order;
-                    }
-
-                  tau[v] = std::pow(
-                    std::pow(1 / (parameters.peclet_number * h[v] * h[v]), 2) +
-                      std::pow(2 * advection_vector_norm[v] / h[v], 2),
-                    -0.5);
-                }
-
-              phi.submit_value(advection_vector * phi.get_gradient(q) -
-                                 source_value - nonlinearity,
-                               q);
-              phi.submit_gradient(
-                1 / parameters.peclet_number * phi.get_gradient(q) +
-                  (((-1 / parameters.peclet_number * phi.get_laplacian(q)) +
-                    (advection_vector * phi.get_gradient(q)) - nonlinearity) *
-                   tau * advection_vector),
-                q);
-            }
-          else
-            {
-              phi.submit_value(advection_vector * phi.get_gradient(q) -
-                                 source_value - nonlinearity,
-                               q);
-              phi.submit_gradient(1 / parameters.peclet_number *
-                                    phi.get_gradient(q),
-                                  q);
-            }
+          phi.submit_value(advection_vector * phi.get_gradient(q) -
+                             source_value - nonlinearity,
+                           q);
+          phi.submit_gradient(phi.get_gradient(q), q);
         }
 
       phi.integrate_scatter(EvaluationFlags::values |
@@ -1452,7 +1012,7 @@ VectorValuedProblem<dim>::compute_update()
           TrilinosWrappers::PreconditionAMG                 preconditioner;
           TrilinosWrappers::PreconditionAMG::AdditionalData data;
 
-          if (parameters.velocity_order > 1)
+          if (parameters.u_order > 1)
             data.higher_order_elements = true;
 
           data.elliptic      = false;
@@ -1659,8 +1219,7 @@ VectorValuedProblem<dim>::compute_l2_error() const
   VectorTools::integrate_difference(mapping,
                                     dof_handler,
                                     solution,
-                                    AnalyticalSolution<dim>(
-                                      parameters.peclet_number),
+                                    AnalyticalSolution<dim>(),
                                     error_per_cell,
                                     QGauss<dim>(fe.degree + 1),
                                     VectorTools::L2_norm);
@@ -1698,21 +1257,12 @@ VectorValuedProblem<dim>::output_results(const unsigned int cycle) const
   flags.compression_level = DataOutBase::VtkFlags::best_speed;
   data_out.set_flags(flags);
 
-  std::string test_case = "";
-  if (parameters.problem_type == Settings::boundary_layer)
-    test_case = "_boundary_layer";
-  else if (parameters.problem_type == Settings::double_glazing)
-    test_case = "_double_glazing";
-  else if (parameters.problem_type == Settings::boundary_layer_with_hole)
-    test_case = "_boundary_layer_with_hole";
-
-  data_out.write_vtu_with_pvtu_record(
-    parameters.output_path,
-    parameters.output_name + std::to_string(dim) + "d_Pe" +
-      std::to_string(parameters.peclet_number) + test_case,
-    cycle,
-    MPI_COMM_WORLD,
-    3);
+  data_out.write_vtu_with_pvtu_record(parameters.output_path,
+                                      parameters.output_name +
+                                        std::to_string(dim),
+                                      cycle,
+                                      MPI_COMM_WORLD,
+                                      3);
 
   solution.zero_out_ghost_values();
 }
@@ -1738,7 +1288,7 @@ VectorValuedProblem<dim>::run()
       Utilities::System::get_current_vectorization_level() +
       "), VECTORIZATION_LEVEL=" +
       std::to_string(DEAL_II_COMPILER_VECTORIZATION_LEVEL);
-    std::string SOL_header     = "Finite element space: " + fe.get_name();
+    std::string SOL_header = "Finite element space: " + fe_system.get_name();
     std::string PRECOND_header = "";
     if (parameters.preconditioner == Settings::amg)
       PRECOND_header = "Preconditioner: AMG";
@@ -1747,14 +1297,8 @@ VectorValuedProblem<dim>::run()
     else if (parameters.preconditioner == Settings::ilu)
       PRECOND_header = "Preconditioner: ILU";
     std::string GEOMETRY_header = "";
-    if (parameters.geometry == Settings::hyperball)
-      GEOMETRY_header = "Geometry: hyperball";
-    else if (parameters.geometry == Settings::hypercube)
+    if (parameters.geometry == Settings::hypercube)
       GEOMETRY_header = "Geometry: hypercube";
-    else if (parameters.geometry == Settings::hypercube_with_hole)
-      GEOMETRY_header = "Geometry: hypercube with hole";
-    else if (parameters.geometry == Settings::hyperrectangle)
-      GEOMETRY_header = "Geometry: hyperrectangle";
     std::string SOURCE_header = "";
     if (parameters.source_term == Settings::zero)
       SOURCE_header = "Source term: zero";
@@ -1764,20 +1308,6 @@ VectorValuedProblem<dim>::run()
       "Initial refinement: " + std::to_string(parameters.initial_refinement);
     std::string CYCLES_header =
       "Total number of cycles: " + std::to_string(parameters.number_of_cycles);
-    std::string PECLET_header =
-      "Peclet number: " + std::to_string(parameters.peclet_number);
-    std::string PROBLEM_TYPE_header = "";
-    if (parameters.problem_type == Settings::boundary_layer)
-      PROBLEM_TYPE_header = "Test problem: boundary layer";
-    else if (parameters.problem_type == Settings::double_glazing)
-      PROBLEM_TYPE_header = "Test problem: double glazing";
-    else if (parameters.problem_type == Settings::boundary_layer_with_hole)
-      PROBLEM_TYPE_header = "Test problem: boundary layer with hole";
-    std::string STABILIZATION_header = "";
-    if (parameters.stabilization)
-      STABILIZATION_header = "Stabilization: true";
-    else
-      STABILIZATION_header = "Stabilization: false";
     std::string NONLINEARITY_header = "";
     if (parameters.nonlinearity)
       NONLINEARITY_header = "Nonlinearity: true";
@@ -1798,9 +1328,6 @@ VectorValuedProblem<dim>::run()
     pcout << SOURCE_header << std::endl;
     pcout << REFINE_header << std::endl;
     pcout << CYCLES_header << std::endl;
-    pcout << PECLET_header << std::endl;
-    pcout << PROBLEM_TYPE_header << std::endl;
-    pcout << STABILIZATION_header << std::endl;
     pcout << NONLINEARITY_header << std::endl;
     pcout << REPETITIONS_header << std::endl;
 
@@ -1865,11 +1392,7 @@ VectorValuedProblem<dim>::run()
       pcout << "  H1 seminorm: " << norm << std::endl;
       pcout << std::endl;
 
-      if (parameters.problem_type == Settings::boundary_layer &&
-          parameters.geometry == Settings::hypercube)
-        {
-          pcout << "  L2 norm: " << compute_l2_error() << std::endl;
-        }
+      pcout << "  L2 norm: " << compute_l2_error() << std::endl;
 
       computing_timer.print_summary();
       computing_timer.reset();
