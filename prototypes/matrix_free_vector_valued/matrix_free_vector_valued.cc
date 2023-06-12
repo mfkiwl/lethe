@@ -226,25 +226,6 @@ Settings::try_parse(const std::string &prm_filename)
 }
 
 template <int dim>
-class SourceTerm : public Function<dim>
-{
-public:
-  virtual double
-  value(const Point<dim> &p,
-        const unsigned int /* component */ = 0) const override
-  {
-    const double coeff  = dim * numbers::PI * numbers::PI;
-    double       factor = 1.0;
-    for (unsigned int d = 0; d < dim; ++d)
-      {
-        factor *= std::sin(numbers::PI * p[d]);
-      }
-    return -std::exp(factor) + coeff * factor;
-  }
-};
-
-// Only available for the boundary layer case in 2D
-template <int dim>
 class AnalyticalSolution : public Function<dim>
 {
 public:
@@ -255,19 +236,15 @@ public:
   value(const Point<dim> &p,
         const unsigned int /* component */ = 0) const override
   {
-    if (dim == 2)
-      {
-        return p[0];
-      }
-    return 0;
+    return std::sin(numbers::PI * p[0]) * std::sin(numbers::PI * p[1]);
   }
 };
 
 template <int dim>
-class AdvectionField : public Function<dim>
+class FirstSourceTerm : public Function<dim>
 {
 public:
-  AdvectionField()
+  FirstSourceTerm()
   {}
 
   virtual double
@@ -281,14 +258,16 @@ public:
 template <int dim>
 template <typename number>
 number
-AdvectionField<dim>::value(const Point<dim, number> & /* p */,
-                           const unsigned int component) const
+FirstSourceTerm<dim>::value(const Point<dim, number> &p,
+                            const unsigned int        component) const
 {
   number result;
   if (component == 0)
-    result = 1.0;
+    result = (-2.0 * Utilities::fixed_power<2, double>(numbers::PI) - 1) *
+             std::sin(numbers::PI * p[0]) * std::sin(numbers::PI * p[1]);
   else if (component == 1)
-    result = 0.0;
+    result = (-2.0 * Utilities::fixed_power<2, double>(numbers::PI) - 1) *
+             std::sin(numbers::PI * p[0]) * std::sin(numbers::PI * p[1]);
   else
     result = 0.0;
   return result;
@@ -296,11 +275,25 @@ AdvectionField<dim>::value(const Point<dim, number> & /* p */,
 
 template <int dim>
 double
-AdvectionField<dim>::value(const Point<dim> & p,
-                           const unsigned int component) const
+FirstSourceTerm<dim>::value(const Point<dim> & p,
+                            const unsigned int component) const
 {
   return value<double>(p, component);
 }
+
+template <int dim>
+class SecondSourceTerm : public Function<dim>
+{
+public:
+  virtual double
+  value(const Point<dim> &p,
+        const unsigned int /* component */ = 0) const override
+  {
+    return -numbers::PI * (2.0 * numbers::PI * std::sin(numbers::PI * p[0]) *
+                             std::sin(numbers::PI * p[1]) +
+                           std::sin(numbers::PI * (p[0] + p[1])));
+  }
+};
 
 template <int dim>
 class BoundaryFunction : public Function<dim>
@@ -358,7 +351,7 @@ class VectorValuedOperator
 public:
   using value_type = number;
 
-  using UIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
+  using UIntegrator = FEEvaluation<dim, -1, 0, dim, number>;
 
   using PIntegrator = FEEvaluation<dim, -1, 0, 1, number>;
 
@@ -393,7 +386,7 @@ private:
               const std::pair<unsigned int, unsigned int> &cell_range) const;
 
   void
-  local_compute(UIntegrator &integrator) const;
+  local_compute(UIntegrator &u_integrator) const;
 
   mutable TrilinosWrappers::SparseMatrix system_matrix;
   Settings                               parameters;
@@ -443,7 +436,7 @@ VectorValuedOperator<dim, number>::evaluate_newton_step(
       for (unsigned int q = 0; q < phi.n_q_points; ++q)
         {
           if (parameters.nonlinearity)
-            nonlinear_values(cell, q) = 1e-01 * std::exp(phi.get_value(q));
+            nonlinear_values(cell, q) = VectorizedArray<number>(0.0);
           else
             nonlinear_values(cell, q) = VectorizedArray<number>(0.0);
         }
@@ -458,39 +451,52 @@ VectorValuedOperator<dim, number>::local_apply(
   const LinearAlgebra::distributed::Vector<number> &src,
   const std::pair<unsigned int, unsigned int> &     cell_range) const
 {
-  UIntegrator phi(data);
-
-  AdvectionField<dim> advection_field;
+  UIntegrator u_phi(data, 0);
+  PIntegrator p_phi(data, 0, 0, dim);
 
   for (unsigned int cell = cell_range.first; cell < cell_range.second; ++cell)
     {
       AssertDimension(nonlinear_values.size(0),
-                      phi.get_matrix_free().n_cell_batches());
-      AssertDimension(nonlinear_values.size(1), phi.n_q_points);
+                      u_phi.get_matrix_free().n_cell_batches());
+      AssertDimension(nonlinear_values.size(1), u_phi.n_q_points);
 
-      phi.reinit(cell);
+      u_phi.reinit(cell);
+      u_phi.gather_evaluate(src,
+                            EvaluationFlags::values |
+                              EvaluationFlags::gradients);
 
-      phi.gather_evaluate(src,
-                          EvaluationFlags::values | EvaluationFlags::gradients);
+      p_phi.reinit(cell);
+      p_phi.gather_evaluate(src,
+                            EvaluationFlags::values |
+                              EvaluationFlags::gradients);
 
-      for (unsigned int q = 0; q < phi.n_q_points; ++q)
+
+      for (unsigned int q = 0; q < u_phi.n_q_points; ++q)
         {
-          // Get advection field vector
-          Point<dim, VectorizedArray<double>> point_batch =
-            phi.quadrature_point(q);
-          Tensor<1, dim, VectorizedArray<double>> advection_vector =
-            evaluate_function<dim, double, dim>(advection_field, point_batch);
+          // First term
+          u_phi.submit_gradient(-u_phi.get_gradient(q), q);
 
+          // Second term
+          p_phi.submit_value(-u_phi.get_divergence(q), q);
 
-          phi.submit_value(advection_vector * phi.get_gradient(q) -
-                             nonlinear_values(cell, q) * phi.get_value(q),
-                           q);
-          phi.submit_gradient(phi.get_gradient(q), q);
+          // Third term
+          VectorizedArray<double>                 p_value = p_phi.get_value(q);
+          Tensor<1, dim, VectorizedArray<double>> identity_by_p;
+          for (unsigned int d = 0; d < dim; ++d)
+            identity_by_p[d] = p_value;
+
+          u_phi.submit_value(-identity_by_p, q);
+
+          // Fourth term
+          p_phi.submit_gradient(-p_phi.get_gradient(q), q);
         }
 
-      phi.integrate_scatter(EvaluationFlags::values |
-                              EvaluationFlags::gradients,
-                            dst);
+      u_phi.integrate_scatter(EvaluationFlags::values |
+                                EvaluationFlags::gradients,
+                              dst);
+      p_phi.integrate_scatter(EvaluationFlags::values |
+                                EvaluationFlags::gradients,
+                              dst);
     }
 }
 
@@ -505,32 +511,40 @@ VectorValuedOperator<dim, number>::apply_add(
 
 template <int dim, typename number>
 void
-VectorValuedOperator<dim, number>::local_compute(UIntegrator &phi) const
+VectorValuedOperator<dim, number>::local_compute(UIntegrator &u_phi) const
 {
   AssertDimension(nonlinear_values.size(0),
-                  phi.get_matrix_free().n_cell_batches());
-  AssertDimension(nonlinear_values.size(1), phi.n_q_points);
+                  u_phi.get_matrix_free().n_cell_batches());
+  AssertDimension(nonlinear_values.size(1), u_phi.n_q_points);
 
-  const unsigned int cell = phi.get_current_cell_index();
+  u_phi.evaluate(EvaluationFlags::values | EvaluationFlags::gradients);
 
-  phi.evaluate(EvaluationFlags::values | EvaluationFlags::gradients);
+  // How do I pass more integrators to this function?
+  // PIntegrator p_phi(data, 1);
+  // p_phi.evaluate(EvaluationFlags::values | EvaluationFlags::gradients);
 
-  AdvectionField<dim> advection_field;
-
-  for (unsigned int q = 0; q < phi.n_q_points; ++q)
+  for (unsigned int q = 0; q < u_phi.n_q_points; ++q)
     {
-      // Get advection field vector
-      Point<dim, VectorizedArray<double>> point_batch = phi.quadrature_point(q);
-      Tensor<1, dim, VectorizedArray<double>> advection_vector =
-        evaluate_function<dim, double, dim>(advection_field, point_batch);
+      // First term
+      u_phi.submit_gradient(u_phi.get_gradient(q), q);
 
-      phi.submit_value(advection_vector * phi.get_gradient(q) -
-                         nonlinear_values(cell, q) * phi.get_value(q),
-                       q);
-      phi.submit_gradient(phi.get_gradient(q), q);
+      // Second term
+      // p_phi.submit_value(u_phi.get_divergence(q), q);
+
+      // Third term
+      // VectorizedArray<double> p_value = p_phi.get_value(q);
+      // Tensor<1, dim, VectorizedArray<double>> identity_by_p;
+      // for (unsigned int d = 0; d < dim; ++d)
+      //   identity_by_p[d] = p_value;
+
+      // u_phi.submit_value(identity_by_p, q);
+
+      // Fourth term
+      // p_phi.submit_gradient(p_phi.get_gradient(q), q);
     }
 
-  phi.integrate(EvaluationFlags::values | EvaluationFlags::gradients);
+  u_phi.integrate(EvaluationFlags::values | EvaluationFlags::gradients);
+  // p_phi.integrate(EvaluationFlags::values | EvaluationFlags::gradients);
 }
 
 template <int dim, typename number>
@@ -592,9 +606,9 @@ VectorValuedOperator<dim, number>::get_system_matrix(
   return system_matrix;
 }
 
-// Main class for the advection-diffusion problem given by
-// −ϵ∆u + w · ∇u = f using Newton's method, the matrix-free
-// approach and different test problems.
+// Main class for a dummy vector-valued problem given by
+// ∇^2 u = p + f_1 and ∇^2 p = ∇ · u + f_2 using Newton's method
+// and the matrix-free approach.
 template <int dim>
 class VectorValuedProblem
 {
@@ -652,13 +666,13 @@ private:
 
   Settings parameters;
 
-  const MappingQ<dim> mapping;
-  FE_Q<dim>           fe;
-  FE_Q<dim>           fe_q;
-  FESystem<dim>       fe_system;
-  DoFHandler<dim>     dof_handler;
-  DoFHandler<dim>     dof_handler_p;
+  const unsigned int u_order;
+  const unsigned int p_order;
 
+  const MappingQ<dim> mapping;
+
+  FESystem<dim>   fe_system;
+  DoFHandler<dim> dof_handler;
 
   AffineConstraints<double> constraints;
   using SystemMatrixType = VectorValuedOperator<dim, double>;
@@ -688,10 +702,13 @@ VectorValuedProblem<dim>::VectorValuedProblem(const Settings &parameters)
       Triangulation<dim>::limit_level_difference_at_vertices,
       parallel::distributed::Triangulation<dim>::construct_multigrid_hierarchy)
   , parameters(parameters)
+  , u_order(parameters.u_order)
+  , p_order(parameters.p_order)
   , mapping(parameters.u_order)
-  , fe(parameters.u_order)
-  , fe_q(parameters.p_order)
-  , fe_system(fe, dim, fe_q, 1)
+  , fe_system(FE_Q<dim>(parameters.u_order),
+              dim,
+              FE_Q<dim>(parameters.p_order),
+              1)
   , dof_handler(triangulation)
   , pcout(std::cout, Utilities::MPI::this_mpi_process(MPI_COMM_WORLD) == 0)
   , computing_timer(MPI_COMM_WORLD,
@@ -709,7 +726,7 @@ VectorValuedProblem<dim>::make_grid()
   switch (parameters.geometry)
     {
         case Settings::hypercube: {
-          GridGenerator::hyper_cube(triangulation, -1.0, 1.0, true);
+          GridGenerator::hyper_cube(triangulation, 0, 1.0, true);
           break;
         }
     }
@@ -727,7 +744,7 @@ VectorValuedProblem<dim>::setup_system()
 
   system_matrix.reinit_operator_parameters(parameters);
 
-  dof_handler.distribute_dofs(fe);
+  dof_handler.distribute_dofs(fe_system);
 
   const IndexSet locally_relevant_dofs =
     DoFTools::extract_locally_relevant_dofs(dof_handler);
@@ -738,26 +755,16 @@ VectorValuedProblem<dim>::setup_system()
 
   // Set homogeneous constraints for the matrix-free operator
   // Create zero BCs for the delta.
+  FEValuesExtractors::Vector velocities(0);
+  FEValuesExtractors::Scalar pressure(dim);
+
   // Left wall
-  VectorTools::interpolate_boundary_values(dof_handler,
-                                           0,
-                                           Functions::ZeroFunction<dim>(),
-                                           constraints);
-  // Right wall
-  VectorTools::interpolate_boundary_values(dof_handler,
-                                           1,
-                                           Functions::ZeroFunction<dim>(),
-                                           constraints);
-  // Top wall
-  VectorTools::interpolate_boundary_values(dof_handler,
-                                           3,
-                                           Functions::ZeroFunction<dim>(),
-                                           constraints);
-  // Bottom wall
-  VectorTools::interpolate_boundary_values(dof_handler,
-                                           2,
-                                           Functions::ZeroFunction<dim>(),
-                                           constraints);
+  VectorTools::interpolate_boundary_values(
+    dof_handler,
+    0,
+    Functions::ZeroFunction<dim>(dim + 1),
+    constraints,
+    fe_system.component_mask(velocities));
 
   constraints.close();
 
@@ -772,7 +779,7 @@ VectorValuedProblem<dim>::setup_system()
     system_mf_storage->reinit(mapping,
                               dof_handler,
                               constraints,
-                              QGauss<1>(fe.degree + 1),
+                              QGauss<1>(u_order + 1),
                               additional_data);
 
     system_matrix.initialize(system_mf_storage);
@@ -781,50 +788,6 @@ VectorValuedProblem<dim>::setup_system()
   system_matrix.initialize_dof_vector(solution);
   system_matrix.initialize_dof_vector(newton_update);
   system_matrix.initialize_dof_vector(system_rhs);
-
-  // Change values of initial newton iteration
-  // Set boundary values for the initial newton iteration
-  std::map<types::global_dof_index, double> boundary_values_left_wall;
-  VectorTools::interpolate_boundary_values(dof_handler,
-                                           0,
-                                           Functions::ConstantFunction<dim>(
-                                             -1.0),
-                                           boundary_values_left_wall);
-
-  for (auto &boundary_value : boundary_values_left_wall)
-    if (solution.locally_owned_elements().is_element(boundary_value.first))
-      solution(boundary_value.first) = boundary_value.second;
-
-  std::map<types::global_dof_index, double> boundary_values_right_wall;
-  VectorTools::interpolate_boundary_values(dof_handler,
-                                           1,
-                                           Functions::ConstantFunction<dim>(
-                                             1.0),
-                                           boundary_values_right_wall);
-
-  for (auto &boundary_value : boundary_values_right_wall)
-    if (solution.locally_owned_elements().is_element(boundary_value.first))
-      solution(boundary_value.first) = boundary_value.second;
-
-  std::map<types::global_dof_index, double> boundary_values_top_wall;
-  VectorTools::interpolate_boundary_values(dof_handler,
-                                           3,
-                                           Functions::ZeroFunction<dim>(),
-                                           boundary_values_top_wall);
-
-  for (auto &boundary_value : boundary_values_top_wall)
-    if (solution.locally_owned_elements().is_element(boundary_value.first))
-      solution(boundary_value.first) = boundary_value.second;
-
-  std::map<types::global_dof_index, double> boundary_values_bottom_wall;
-  VectorTools::interpolate_boundary_values(dof_handler,
-                                           2,
-                                           BoundaryFunction<dim>(),
-                                           boundary_values_bottom_wall);
-
-  for (auto &boundary_value : boundary_values_bottom_wall)
-    if (solution.locally_owned_elements().is_element(boundary_value.first))
-      solution(boundary_value.first) = boundary_value.second;
 }
 
 template <int dim>
@@ -877,7 +840,7 @@ VectorValuedProblem<dim>::setup_gmg()
       mg_mf_storage_level->reinit(mapping,
                                   dof_handler,
                                   level_constraints[level],
-                                  QGauss<1>(fe.degree + 1),
+                                  QGauss<1>(u_order + 1),
                                   additional_data);
 
       mg_matrices[level].initialize(mg_mf_storage_level,
@@ -914,48 +877,64 @@ VectorValuedProblem<dim>::local_evaluate_residual(
   const LinearAlgebra::distributed::Vector<double> &src,
   const std::pair<unsigned int, unsigned int> &     cell_range) const
 {
-  FEEvaluation<dim, -1, 0, 1, double> phi(data);
-  SourceTerm<dim>                     source_term_function;
-  AdvectionField<dim>                 advection_field;
+  FEEvaluation<dim, -1, 0, dim, double> u_phi(data);
+  FEEvaluation<dim, -1, 0, 1, double>   p_phi(data, 0, 0, dim);
+
+  FirstSourceTerm<dim>  first_source_term_function;
+  SecondSourceTerm<dim> second_source_term_function;
 
   for (unsigned int cell = cell_range.first; cell < cell_range.second; ++cell)
     {
-      phi.reinit(cell);
+      u_phi.reinit(cell);
+      u_phi.read_dof_values_plain(src);
+      u_phi.evaluate(EvaluationFlags::values | EvaluationFlags::gradients);
 
-      phi.read_dof_values_plain(src);
+      p_phi.reinit(cell);
+      p_phi.read_dof_values_plain(src);
+      p_phi.evaluate(EvaluationFlags::values | EvaluationFlags::gradients);
 
-      phi.evaluate(EvaluationFlags::values | EvaluationFlags::gradients);
-
-      for (unsigned int q = 0; q < phi.n_q_points; ++q)
+      for (unsigned int q = 0; q < u_phi.n_q_points; ++q)
         {
-          VectorizedArray<double> source_value = VectorizedArray<double>(0.0);
-
-          Point<dim, VectorizedArray<double>> point_batch =
-            phi.quadrature_point(q);
+          VectorizedArray<double> second_source_value =
+            VectorizedArray<double>(0.0);
+          Tensor<1, dim, VectorizedArray<double>> first_source_value;
+          Point<dim, VectorizedArray<double>>     point_batch =
+            u_phi.quadrature_point(q);
           if (parameters.source_term == Settings::mms)
             {
-              source_value =
-                evaluate_function<dim, double>(source_term_function,
+              first_source_value =
+                evaluate_function<dim, double, dim>(first_source_term_function,
+                                                    point_batch);
+
+              second_source_value =
+                evaluate_function<dim, double>(second_source_term_function,
                                                point_batch);
             }
 
-          Tensor<1, dim, VectorizedArray<double>> advection_vector =
-            evaluate_function<dim, double, dim>(advection_field, point_batch);
+          // First term
+          u_phi.submit_gradient(-u_phi.get_gradient(q), q);
 
-          VectorizedArray<double> nonlinearity =
-            (parameters.nonlinearity ? 1e-01 * std::exp(phi.get_value(q)) :
-                                       0.0);
+          // Second term  + second source term
+          p_phi.submit_value(-u_phi.get_divergence(q) - second_source_value, q);
 
+          // Third term + first source term
+          VectorizedArray<double>                 p_value = p_phi.get_value(q);
+          Tensor<1, dim, VectorizedArray<double>> identity_by_p;
+          for (unsigned int d = 0; d < dim; ++d)
+            identity_by_p[d] = p_value;
 
-          phi.submit_value(advection_vector * phi.get_gradient(q) -
-                             source_value - nonlinearity,
-                           q);
-          phi.submit_gradient(phi.get_gradient(q), q);
+          u_phi.submit_value(-identity_by_p - first_source_value, q);
+
+          // Fourth term
+          p_phi.submit_gradient(-p_phi.get_gradient(q), q);
         }
 
-      phi.integrate_scatter(EvaluationFlags::values |
-                              EvaluationFlags::gradients,
-                            dst);
+      u_phi.integrate_scatter(EvaluationFlags::values |
+                                EvaluationFlags::gradients,
+                              dst);
+      p_phi.integrate_scatter(EvaluationFlags::values |
+                                EvaluationFlags::gradients,
+                              dst);
     }
 }
 
@@ -1045,7 +1024,7 @@ VectorValuedProblem<dim>::compute_update()
           mg_smoother_jacobi.initialize(
             mg_matrices,
             typename SmootherTypeJacobi::AdditionalData(
-              fe.degree == 1 ? 0.6667 : (fe.degree == 2 ? 0.56 : 0.47)));
+              u_order == 1 ? 0.6667 : (u_order == 2 ? 0.56 : 0.47)));
           mg_smoother_jacobi.set_steps(6);
 
           // Set up preconditioned coarse-grid solver
@@ -1155,7 +1134,7 @@ VectorValuedProblem<dim>::solve()
   for (unsigned int newton_step = 1; newton_step <= itmax; ++newton_step)
     {
       assemble_rhs();
-      compute_update();
+      // compute_update();
       const double ERRx = newton_update.l2_norm();
       const double ERRf = compute_residual(1.0);
       solution.add(1.0, newton_update);
@@ -1189,82 +1168,85 @@ template <int dim>
 double
 VectorValuedProblem<dim>::compute_solution_norm() const
 {
-  solution.update_ghost_values();
+  // solution.update_ghost_values();
 
-  Vector<float> norm_per_cell(triangulation.n_active_cells());
+  // Vector<float> norm_per_cell(triangulation.n_active_cells());
 
-  VectorTools::integrate_difference(mapping,
-                                    dof_handler,
-                                    solution,
-                                    Functions::ZeroFunction<dim>(),
-                                    norm_per_cell,
-                                    QGauss<dim>(fe.degree + 1),
-                                    VectorTools::H1_seminorm);
+  // VectorTools::integrate_difference(mapping,
+  //                                   dof_handler,
+  //                                   solution,
+  //                                   Functions::ZeroFunction<dim>(),
+  //                                   norm_per_cell,
+  //                                   QGauss<dim>(fe.degree + 1),
+  //                                   VectorTools::H1_seminorm);
 
-  solution.zero_out_ghost_values();
+  // solution.zero_out_ghost_values();
 
-  return VectorTools::compute_global_error(triangulation,
-                                           norm_per_cell,
-                                           VectorTools::H1_seminorm);
+  // return VectorTools::compute_global_error(triangulation,
+  //                                          norm_per_cell,
+  //                                          VectorTools::H1_seminorm);
+  return 0.0;
 }
 
 template <int dim>
 double
 VectorValuedProblem<dim>::compute_l2_error() const
 {
-  solution.update_ghost_values();
+  // solution.update_ghost_values();
 
-  Vector<float> error_per_cell(triangulation.n_active_cells());
+  // Vector<float> error_per_cell(triangulation.n_active_cells());
 
-  VectorTools::integrate_difference(mapping,
-                                    dof_handler,
-                                    solution,
-                                    AnalyticalSolution<dim>(),
-                                    error_per_cell,
-                                    QGauss<dim>(fe.degree + 1),
-                                    VectorTools::L2_norm);
+  // VectorTools::integrate_difference(mapping,
+  //                                   dof_handler,
+  //                                   solution,
+  //                                   AnalyticalSolution<dim>(),
+  //                                   error_per_cell,
+  //                                   QGauss<dim>(fe.degree + 1),
+  //                                   VectorTools::L2_norm);
 
-  solution.zero_out_ghost_values();
+  // solution.zero_out_ghost_values();
 
-  return VectorTools::compute_global_error(triangulation,
-                                           error_per_cell,
-                                           VectorTools::L2_norm);
+  // return VectorTools::compute_global_error(triangulation,
+  //                                          error_per_cell,
+  //                                          VectorTools::L2_norm);
+  return 0.0;
 }
 
 template <int dim>
 void
-VectorValuedProblem<dim>::output_results(const unsigned int cycle) const
+VectorValuedProblem<dim>::output_results(const unsigned int /* cycle */) const
 {
-  if (triangulation.n_global_active_cells() > 1e6)
-    return;
+  // if (triangulation.n_global_active_cells() > 1e6)
+  //   return;
 
-  solution.update_ghost_values();
+  // solution.update_ghost_values();
 
-  DataOut<dim> data_out;
-  data_out.attach_dof_handler(dof_handler);
-  data_out.add_data_vector(solution, "solution");
+  // DataOut<dim> data_out;
+  // data_out.attach_dof_handler(dof_handler);
+  // data_out.add_data_vector(solution, "solution");
 
-  Vector<float> subdomain(triangulation.n_active_cells());
-  for (unsigned int i = 0; i < subdomain.size(); ++i)
-    {
-      subdomain(i) = triangulation.locally_owned_subdomain();
-    }
-  data_out.add_data_vector(subdomain, "subdomain");
+  // Vector<float> subdomain(triangulation.n_active_cells());
+  // for (unsigned int i = 0; i < subdomain.size(); ++i)
+  //   {
+  //     subdomain(i) = triangulation.locally_owned_subdomain();
+  //   }
+  // data_out.add_data_vector(subdomain, "subdomain");
 
-  data_out.build_patches(mapping, fe.degree, DataOut<dim>::curved_inner_cells);
+  // data_out.build_patches(mapping, fe.degree,
+  // DataOut<dim>::curved_inner_cells);
 
-  DataOutBase::VtkFlags flags;
-  flags.compression_level = DataOutBase::VtkFlags::best_speed;
-  data_out.set_flags(flags);
+  // DataOutBase::VtkFlags flags;
+  // flags.compression_level = DataOutBase::VtkFlags::best_speed;
+  // data_out.set_flags(flags);
 
-  data_out.write_vtu_with_pvtu_record(parameters.output_path,
-                                      parameters.output_name +
-                                        std::to_string(dim),
-                                      cycle,
-                                      MPI_COMM_WORLD,
-                                      3);
+  // data_out.write_vtu_with_pvtu_record(parameters.output_path,
+  //                                     parameters.output_name +
+  //                                       std::to_string(dim),
+  //                                     cycle,
+  //                                     MPI_COMM_WORLD,
+  //                                     3);
 
-  solution.zero_out_ghost_values();
+  // solution.zero_out_ghost_values();
 }
 
 template <int dim>
@@ -1386,7 +1368,7 @@ VectorValuedProblem<dim>::run()
       if (parameters.output)
         {
           pcout << "Output results..." << std::endl;
-          output_results(cycle);
+          // output_results(cycle);
         }
 
       pcout << "  H1 seminorm: " << norm << std::endl;
