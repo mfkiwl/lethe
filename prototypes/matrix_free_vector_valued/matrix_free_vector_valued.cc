@@ -1214,39 +1214,51 @@ VectorValuedProblem<dim>::compute_l2_error() const
 
 template <int dim>
 void
-VectorValuedProblem<dim>::output_results(const unsigned int /* cycle */) const
+VectorValuedProblem<dim>::output_results(const unsigned int cycle) const
 {
-  // if (triangulation.n_global_active_cells() > 1e6)
-  //   return;
+  if (triangulation.n_global_active_cells() > 1e6)
+    return;
 
-  // solution.update_ghost_values();
+  solution.update_ghost_values();
 
-  // DataOut<dim> data_out;
-  // data_out.attach_dof_handler(dof_handler);
-  // data_out.add_data_vector(solution, "solution");
+  std::vector<std::string> solution_names(dim, "u");
+  solution_names.push_back("p");
 
-  // Vector<float> subdomain(triangulation.n_active_cells());
-  // for (unsigned int i = 0; i < subdomain.size(); ++i)
-  //   {
-  //     subdomain(i) = triangulation.locally_owned_subdomain();
-  //   }
-  // data_out.add_data_vector(subdomain, "subdomain");
+  std::vector<DataComponentInterpretation::DataComponentInterpretation>
+    dealii_data_component_interpretation(
+      dim, DataComponentInterpretation::component_is_part_of_vector);
 
-  // data_out.build_patches(mapping, fe.degree,
-  // DataOut<dim>::curved_inner_cells);
+  dealii_data_component_interpretation.push_back(
+    DataComponentInterpretation::component_is_scalar);
 
-  // DataOutBase::VtkFlags flags;
-  // flags.compression_level = DataOutBase::VtkFlags::best_speed;
-  // data_out.set_flags(flags);
+  DataOut<dim> data_out;
+  data_out.attach_dof_handler(dof_handler);
+  data_out.add_data_vector(solution,
+                           solution_names,
+                           DataOut<dim>::type_dof_data,
+                           dealii_data_component_interpretation);
 
-  // data_out.write_vtu_with_pvtu_record(parameters.output_path,
-  //                                     parameters.output_name +
-  //                                       std::to_string(dim),
-  //                                     cycle,
-  //                                     MPI_COMM_WORLD,
-  //                                     3);
+  Vector<float> subdomain(triangulation.n_active_cells());
+  for (unsigned int i = 0; i < subdomain.size(); ++i)
+    {
+      subdomain(i) = triangulation.locally_owned_subdomain();
+    }
+  data_out.add_data_vector(subdomain, "subdomain");
 
-  // solution.zero_out_ghost_values();
+  data_out.build_patches();
+
+  DataOutBase::VtkFlags flags;
+  flags.compression_level = DataOutBase::VtkFlags::best_speed;
+  data_out.set_flags(flags);
+
+  data_out.write_vtu_with_pvtu_record(parameters.output_path,
+                                      parameters.output_name +
+                                        std::to_string(dim),
+                                      cycle,
+                                      MPI_COMM_WORLD,
+                                      3);
+
+  solution.zero_out_ghost_values();
 }
 
 template <int dim>
@@ -1368,7 +1380,7 @@ VectorValuedProblem<dim>::run()
       if (parameters.output)
         {
           pcout << "Output results..." << std::endl;
-          // output_results(cycle);
+          output_results(cycle);
         }
 
       pcout << "  H1 seminorm: " << norm << std::endl;
