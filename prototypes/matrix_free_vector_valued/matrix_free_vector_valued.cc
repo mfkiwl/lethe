@@ -230,15 +230,24 @@ class AnalyticalSolution : public Function<dim>
 {
 public:
   AnalyticalSolution()
+    : Function<dim>(dim + 1)
   {}
 
-  virtual double
-  value(const Point<dim> &p,
-        const unsigned int /* component */ = 0) const override
-  {
-    return std::sin(numbers::PI * p[0]) * std::sin(numbers::PI * p[1]);
-  }
+  virtual void
+  vector_value(const Point<dim> &p, Vector<double> &value) const override;
 };
+
+template <int dim>
+void
+AnalyticalSolution<dim>::vector_value(const Point<dim> &p,
+                                      Vector<double> &  values) const
+{
+  AssertDimension(values.size(), dim + 1);
+
+  values(0) = std::sin(numbers::PI * p[0]) * std::sin(numbers::PI * p[1]);
+  values(1) = std::sin(numbers::PI * p[0]) * std::sin(numbers::PI * p[1]);
+  values(2) = std::sin(numbers::PI * p[0]) * std::sin(numbers::PI * p[1]);
+}
 
 template <int dim>
 class FirstSourceTerm : public Function<dim>
@@ -652,10 +661,10 @@ private:
   void
   solve();
 
-  double
+  void
   compute_solution_norm() const;
 
-  double
+  void
   compute_l2_error() const;
 
   void
@@ -1165,51 +1174,96 @@ VectorValuedProblem<dim>::solve()
 }
 
 template <int dim>
-double
+void
 VectorValuedProblem<dim>::compute_solution_norm() const
 {
-  // solution.update_ghost_values();
+  solution.update_ghost_values();
 
-  // Vector<float> norm_per_cell(triangulation.n_active_cells());
+  const ComponentSelectFunction<dim> p_mask(dim, dim + 1);
+  const ComponentSelectFunction<dim> u_mask(std::make_pair(0, dim), dim + 1);
 
-  // VectorTools::integrate_difference(mapping,
-  //                                   dof_handler,
-  //                                   solution,
-  //                                   Functions::ZeroFunction<dim>(),
-  //                                   norm_per_cell,
-  //                                   QGauss<dim>(fe.degree + 1),
-  //                                   VectorTools::H1_seminorm);
+  Vector<float> norm_per_cell(triangulation.n_active_cells());
 
-  // solution.zero_out_ghost_values();
+  VectorTools::integrate_difference(mapping,
+                                    dof_handler,
+                                    solution,
+                                    Functions::ZeroFunction<dim>(dim + 1),
+                                    norm_per_cell,
+                                    QGauss<dim>(u_order + 1),
+                                    VectorTools::H1_seminorm,
+                                    &u_mask);
 
-  // return VectorTools::compute_global_error(triangulation,
-  //                                          norm_per_cell,
-  //                                          VectorTools::H1_seminorm);
-  return 0.0;
+  solution.zero_out_ghost_values();
+
+  double u_h1_norm =
+    VectorTools::compute_global_error(triangulation,
+                                      norm_per_cell,
+                                      VectorTools::H1_seminorm);
+
+  VectorTools::integrate_difference(mapping,
+                                    dof_handler,
+                                    solution,
+                                    Functions::ZeroFunction<dim>(dim + 1),
+                                    norm_per_cell,
+                                    QGauss<dim>(p_order + 1),
+                                    VectorTools::H1_seminorm,
+                                    &p_mask);
+
+  solution.zero_out_ghost_values();
+
+  double p_h1_norm =
+    VectorTools::compute_global_error(triangulation,
+                                      norm_per_cell,
+                                      VectorTools::H1_seminorm);
+
+  pcout << "  u H1 seminorm: " << u_h1_norm << std::endl;
+  pcout << "  p H1 seminorm: " << p_h1_norm << std::endl;
+  pcout << std::endl;
 }
 
 template <int dim>
-double
+void
 VectorValuedProblem<dim>::compute_l2_error() const
 {
-  // solution.update_ghost_values();
+  solution.update_ghost_values();
 
-  // Vector<float> error_per_cell(triangulation.n_active_cells());
+  const ComponentSelectFunction<dim> p_mask(dim, dim + 1);
+  const ComponentSelectFunction<dim> u_mask(std::make_pair(0, dim), dim + 1);
 
-  // VectorTools::integrate_difference(mapping,
-  //                                   dof_handler,
-  //                                   solution,
-  //                                   AnalyticalSolution<dim>(),
-  //                                   error_per_cell,
-  //                                   QGauss<dim>(fe.degree + 1),
-  //                                   VectorTools::L2_norm);
+  Vector<float> error_per_cell(triangulation.n_active_cells());
 
-  // solution.zero_out_ghost_values();
+  VectorTools::integrate_difference(mapping,
+                                    dof_handler,
+                                    solution,
+                                    AnalyticalSolution<dim>(),
+                                    error_per_cell,
+                                    QGauss<dim>(u_order + 1),
+                                    VectorTools::L2_norm,
+                                    &u_mask);
 
-  // return VectorTools::compute_global_error(triangulation,
-  //                                          error_per_cell,
-  //                                          VectorTools::L2_norm);
-  return 0.0;
+  solution.zero_out_ghost_values();
+
+  double u_l2_error = VectorTools::compute_global_error(triangulation,
+                                                        error_per_cell,
+                                                        VectorTools::L2_norm);
+
+  VectorTools::integrate_difference(mapping,
+                                    dof_handler,
+                                    solution,
+                                    AnalyticalSolution<dim>(),
+                                    error_per_cell,
+                                    QGauss<dim>(p_order + 1),
+                                    VectorTools::L2_norm,
+                                    &p_mask);
+
+  solution.zero_out_ghost_values();
+
+  double p_l2_error = VectorTools::compute_global_error(triangulation,
+                                                        error_per_cell,
+                                                        VectorTools::L2_norm);
+
+  pcout << "  u L2 norm: " << u_l2_error << std::endl;
+  pcout << "  p L2 norm: " << p_l2_error << std::endl;
 }
 
 template <int dim>
@@ -1376,17 +1430,15 @@ VectorValuedProblem<dim>::run()
             << timer.wall_time() << " s" << std::endl;
       pcout << std::endl;
 
-      const double norm = compute_solution_norm();
       if (parameters.output)
         {
           pcout << "Output results..." << std::endl;
           output_results(cycle);
         }
 
-      pcout << "  H1 seminorm: " << norm << std::endl;
-      pcout << std::endl;
+      compute_solution_norm();
 
-      pcout << "  L2 norm: " << compute_l2_error() << std::endl;
+      compute_l2_error();
 
       computing_timer.print_summary();
       computing_timer.reset();
