@@ -41,6 +41,7 @@
 #include <deal.II/lac/precondition.h>
 #include <deal.II/lac/solver_cg.h>
 #include <deal.II/lac/solver_gmres.h>
+#include <deal.II/lac/sparsity_tools.h>
 #include <deal.II/lac/trilinos_precondition.h>
 #include <deal.II/lac/trilinos_solver.h>
 #include <deal.II/lac/trilinos_sparse_matrix.h>
@@ -638,6 +639,12 @@ private:
   setup_gmg();
 
   void
+  assemble_matrix();
+
+  void
+  assemble_coarse_matrix();
+
+  void
   evaluate_residual(
     LinearAlgebra::distributed::Vector<double> &      dst,
     const LinearAlgebra::distributed::Vector<double> &src) const;
@@ -694,6 +701,8 @@ private:
   MGLevelObject<LinearAlgebra::distributed::Vector<double>> mg_solution;
   MGTransferMatrixFree<dim, double>                         mg_transfer;
   MGLevelObject<AffineConstraints<double>>                  level_constraints;
+  TrilinosWrappers::SparseMatrix                            mb_system_matrix;
+  TrilinosWrappers::SparseMatrix mb_system_matrix_coarse;
 
   LinearAlgebra::distributed::Vector<double> solution;
   LinearAlgebra::distributed::Vector<double> newton_update;
@@ -769,11 +778,16 @@ VectorValuedProblem<dim>::setup_system()
 
   // Left wall
   VectorTools::interpolate_boundary_values(
-    dof_handler,
-    0,
-    Functions::ZeroFunction<dim>(dim + 1),
-    constraints,
-    fe_system.component_mask(velocities));
+    dof_handler, 0, Functions::ZeroFunction<dim>(dim + 1), constraints);
+
+  VectorTools::interpolate_boundary_values(
+    dof_handler, 1, Functions::ZeroFunction<dim>(dim + 1), constraints);
+
+  VectorTools::interpolate_boundary_values(
+    dof_handler, 2, Functions::ZeroFunction<dim>(dim + 1), constraints);
+
+  VectorTools::interpolate_boundary_values(
+    dof_handler, 3, Functions::ZeroFunction<dim>(dim + 1), constraints);
 
   constraints.close();
 
@@ -797,6 +811,21 @@ VectorValuedProblem<dim>::setup_system()
   system_matrix.initialize_dof_vector(solution);
   system_matrix.initialize_dof_vector(newton_update);
   system_matrix.initialize_dof_vector(system_rhs);
+
+  MPI_Comm               mpi_communicator(MPI_COMM_WORLD);
+  IndexSet               locally_owned_dofs = dof_handler.locally_owned_dofs();
+  DynamicSparsityPattern dsp(locally_relevant_dofs);
+  DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints, false);
+  SparsityTools::distribute_sparsity_pattern(dsp,
+                                             dof_handler.locally_owned_dofs(),
+                                             mpi_communicator,
+                                             locally_relevant_dofs);
+  constraints.condense(dsp);
+
+  mb_system_matrix.reinit(locally_owned_dofs,
+                          locally_owned_dofs,
+                          dsp,
+                          mpi_communicator);
 }
 
 template <int dim>
@@ -864,6 +893,159 @@ VectorValuedProblem<dim>::setup_gmg()
                                          mg_constrained_dofs,
                                          level);
     }
+}
+
+template <int dim>
+void
+VectorValuedProblem<dim>::assemble_matrix()
+{
+  const QGauss<dim> quadrature_formula(u_order + 1);
+
+  mb_system_matrix = 0;
+
+  FEValues<dim> fe_values(fe_system,
+                          quadrature_formula,
+                          update_values | update_gradients | update_JxW_values);
+
+  const unsigned int dofs_per_cell = fe_values.dofs_per_cell;
+  const unsigned int n_q_points    = fe_values.n_quadrature_points;
+
+  const FEValuesExtractors::Vector u(0);
+  const FEValuesExtractors::Scalar p(dim);
+
+  FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
+
+  std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
+
+  for (const auto &cell : dof_handler.active_cell_iterators())
+    {
+      if (cell->is_locally_owned())
+        {
+          cell_matrix = 0.0;
+
+          fe_values.reinit(cell);
+
+          for (unsigned int q = 0; q < n_q_points; ++q)
+            {
+              const double dx = fe_values.JxW(q);
+
+              for (unsigned int i = 0; i < dofs_per_cell; ++i)
+                {
+                  const Tensor<1, dim> phi_i      = fe_values[u].value(i, q);
+                  const Tensor<2, dim> grad_phi_i = fe_values[u].gradient(i, q);
+                  const double         psi_i      = fe_values[p].value(i, q);
+                  const Tensor<1, dim> grad_psi_i = fe_values[p].gradient(i, q);
+
+                  for (unsigned int j = 0; j < dofs_per_cell; ++j)
+                    {
+                      // const Tensor<1, dim> phi_j = fe_values[u].value(j, q);
+                      const Tensor<2, dim> grad_phi_j =
+                        fe_values[u].gradient(j, q);
+                      const double div_phi_j = fe_values[u].divergence(j, q);
+                      const double psi_j     = fe_values[p].value(j, q);
+                      const Tensor<1, dim> grad_psi_j =
+                        fe_values[p].gradient(j, q);
+                      Tensor<1, dim> identity;
+                      identity[0] = 1;
+                      identity[1] = 0;
+
+                      cell_matrix(i, j) -=
+                        (scalar_product(grad_phi_i, grad_phi_j) +
+                         (psi_i * div_phi_j) + (phi_i * psi_j * identity) +
+                         (grad_psi_i * grad_psi_j)) *
+                        dx;
+                    }
+                }
+            }
+
+          cell->get_dof_indices(local_dof_indices);
+          constraints.distribute_local_to_global(cell_matrix,
+                                                 local_dof_indices,
+                                                 mb_system_matrix);
+        }
+    }
+
+  mb_system_matrix.compress(VectorOperation::add);
+}
+
+template <int dim>
+void
+VectorValuedProblem<dim>::assemble_coarse_matrix()
+{
+  QGauss<dim> quadrature_formula(u_order + 1);
+
+  FEValues<dim> fe_values(fe_system,
+                          quadrature_formula,
+                          update_values | update_gradients | update_JxW_values);
+
+  const unsigned int dofs_per_cell = fe_values.dofs_per_cell;
+  const unsigned int n_q_points    = fe_values.n_quadrature_points;
+
+  const FEValuesExtractors::Vector u(0);
+  const FEValuesExtractors::Scalar p(dim);
+
+  FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
+
+  std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
+
+  std::vector<AffineConstraints<double>> boundary_constraints(
+    triangulation.n_global_levels());
+  const IndexSet dof_set =
+    DoFTools::extract_locally_relevant_level_dofs(dof_handler, 0);
+  boundary_constraints[0].reinit(dof_set);
+  boundary_constraints[0].add_lines(
+    mg_constrained_dofs.get_refinement_edge_indices(0));
+  boundary_constraints[0].add_lines(
+    mg_constrained_dofs.get_boundary_indices(0));
+  boundary_constraints[0].close();
+
+  for (const auto &cell : dof_handler.cell_iterators())
+    if (cell->level_subdomain_id() == triangulation.locally_owned_subdomain())
+      {
+        cell_matrix = 0;
+
+        fe_values.reinit(cell);
+
+        for (unsigned int q = 0; q < n_q_points; ++q)
+          {
+            const double dx = fe_values.JxW(q);
+
+            for (unsigned int i = 0; i < dofs_per_cell; ++i)
+              {
+                const Tensor<1, dim> phi_i      = fe_values[u].value(i, q);
+                const Tensor<2, dim> grad_phi_i = fe_values[u].gradient(i, q);
+                const double         psi_i      = fe_values[p].value(i, q);
+                const Tensor<1, dim> grad_psi_i = fe_values[p].gradient(i, q);
+
+                for (unsigned int j = 0; j < dofs_per_cell; ++j)
+                  {
+                    // const Tensor<1, dim> phi_j = fe_values[u].value(j, q);
+                    const Tensor<2, dim> grad_phi_j =
+                      fe_values[u].gradient(j, q);
+                    const double div_phi_j = fe_values[u].divergence(j, q);
+                    const double psi_j     = fe_values[p].value(j, q);
+                    const Tensor<1, dim> grad_psi_j =
+                      fe_values[p].gradient(j, q);
+                    Tensor<1, dim> identity;
+                    identity[0] = 1;
+                    identity[1] = 0;
+
+                    cell_matrix(i, j) -=
+                      (scalar_product(grad_phi_i, grad_phi_j) +
+                       (psi_i * div_phi_j) + (phi_i * psi_j * identity) +
+                       (grad_psi_i * grad_psi_j)) *
+                      dx;
+                  }
+              }
+          }
+
+        cell->get_mg_dof_indices(local_dof_indices);
+
+        boundary_constraints[0].distribute_local_to_global(
+          cell_matrix, local_dof_indices, mb_system_matrix_coarse);
+      }
+
+  mb_system_matrix_coarse.compress(VectorOperation::add);
 }
 
 template <int dim>
@@ -1007,9 +1189,8 @@ VectorValuedProblem<dim>::compute_update()
           data.smoother_type = "Jacobi";
 
           system_matrix.evaluate_newton_step(solution);
-
-          preconditioner.initialize(
-            system_matrix.get_system_matrix(constraints), data);
+          assemble_matrix();
+          preconditioner.initialize(mb_system_matrix, data);
           gmres.solve(system_matrix, newton_update, system_rhs, preconditioner);
           break;
         }
@@ -1106,8 +1287,9 @@ VectorValuedProblem<dim>::compute_update()
         case Settings::ilu: {
           TrilinosWrappers::PreconditionILU                 preconditioner;
           TrilinosWrappers::PreconditionILU::AdditionalData data_ilu;
-          preconditioner.initialize(
-            system_matrix.get_system_matrix(constraints), data_ilu);
+          system_matrix.evaluate_newton_step(solution);
+          assemble_matrix();
+          preconditioner.initialize(mb_system_matrix, data_ilu);
 
           gmres.solve(system_matrix, newton_update, system_rhs, preconditioner);
           break;
@@ -1143,7 +1325,7 @@ VectorValuedProblem<dim>::solve()
   for (unsigned int newton_step = 1; newton_step <= itmax; ++newton_step)
     {
       assemble_rhs();
-      // compute_update();
+      compute_update();
       const double ERRx = newton_update.l2_norm();
       const double ERRf = compute_residual(1.0);
       solution.add(1.0, newton_update);
@@ -1200,6 +1382,8 @@ VectorValuedProblem<dim>::compute_solution_norm() const
                                       norm_per_cell,
                                       VectorTools::H1_seminorm);
 
+  solution.update_ghost_values();
+
   VectorTools::integrate_difference(mapping,
                                     dof_handler,
                                     solution,
@@ -1246,6 +1430,8 @@ VectorValuedProblem<dim>::compute_l2_error() const
   double u_l2_error = VectorTools::compute_global_error(triangulation,
                                                         error_per_cell,
                                                         VectorTools::L2_norm);
+
+  solution.update_ghost_values();
 
   VectorTools::integrate_difference(mapping,
                                     dof_handler,
